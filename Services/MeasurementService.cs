@@ -35,4 +35,16 @@ public class MeasurementService(AppDbContext context) : IMeasurementService
             measurement.Dia,
             measurement.Pulse);
     }
+
+    public async Task<bool> DeleteAsync(Guid id)
+    {
+        var measurement = await context.Measurements.FindAsync(id);
+        if (measurement == null)
+            return false;
+
+        context.Measurements.Remove(measurement);
+        await context.SaveChangesAsync();
+        
+        return true;
+    }
 }

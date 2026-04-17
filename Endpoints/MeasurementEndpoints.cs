@@ -17,5 +17,11 @@ public static class MeasurementEndpoints
             var result = await service.CreateAsync(dto);
             return Results.Created($"/api/measurements/{result.Id}", result);
         });
+
+        group.MapDelete("/{id:guid}", async (Guid id, IMeasurementService service) =>
+        {
+            var success = await service.DeleteAsync(id);
+            return success ? Results.NoContent() : Results.NotFound();
+        });
     }
 }
