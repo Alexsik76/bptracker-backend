@@ -1,0 +1,15 @@
+# Ignored directories
+bin/
+obj/
+.git/
+.vs/
+.vscode/
+.idea/
+
+# Ignored files
+Dockerfile
+docker-compose*
+.gitignore
+.dockerignore
+README.md
+LICENSE

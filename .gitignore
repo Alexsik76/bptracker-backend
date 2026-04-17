@@ -1,0 +1,21 @@
+# Build artifacts
+bin/
+obj/
+publish/
+
+# IDE settings
+.vs/
+.vscode/
+.idea/
+*.user
+*.userosscache
+*.sln.docstates
+
+# Secrets and Local Settings
+appsettings.Development.json
+usersecrets.json
+.env
+
+# Docker
+.docker/
+docker-compose.override.yml
