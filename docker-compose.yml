@@ -17,6 +17,7 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       ConnectionStrings__DefaultConnection: "Host=db;Database=bp_tracker;Username=bp_user;Password=bp_password"
+      GOOGLE_SCRIPT_URL: $GOOGLE_SCRIPT_URL
     ports:
       - "5000:8080"
     depends_on:

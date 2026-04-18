@@ -1,6 +1,7 @@
 using BpTracker.Api.Data;
 using BpTracker.Api.Endpoints;
 using BpTracker.Api.Services;
+using BpTracker.Api.Models;
 using Microsoft.EntityFrameworkCore;
 using Scalar.AspNetCore;
 using Npgsql;
@@ -11,7 +12,7 @@ var builder = WebApplication.CreateBuilder(args);
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(connectionString));
-
+builder.Services.AddHttpClient();
 builder.Services.AddOpenApi();
 
 builder.Services.AddScoped<IMeasurementService, MeasurementService>();
@@ -26,6 +27,12 @@ builder.Services.AddCors(options =>
               .AllowAnyHeader();
     });
 });
+builder.Services.Configure<GoogleSheetsSettings>(options =>
+{
+    options.ScriptUrl = builder.Configuration["GOOGLE_SCRIPT_URL"] ?? string.Empty;
+});
+
+
 
 var app = builder.Build();
 
@@ -46,6 +53,7 @@ app.UseCors();
 
 app.MapMeasurementEndpoints();
 app.MapSchemaEndpoints();
+app.MapSyncEndpoints();
 
 // Automatically apply migrations on startup with retry logic
 using (var scope = app.Services.CreateScope())
