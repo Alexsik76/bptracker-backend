@@ -10,6 +10,7 @@ public static class AnalyzeEndpoints
     {
         app.MapPost("/api/measurements/analyze", async (HttpContext ctx, IGeminiService gemini) =>
         {
+
             if (!ctx.Request.HasFormContentType)
                 return Results.BadRequest(new { error = "Очікується multipart/form-data" });
 
@@ -35,12 +36,12 @@ public static class AnalyzeEndpoints
             }
             catch (HttpRequestException ex)
             {
-                return Results.Problem($"Помилка Gemini API: {ex.Message}", statusCode: 502);
+                return Results.Json(new { error = $"Помилка Gemini API: {ex.Message}" }, statusCode: 502);
             }
             catch (InvalidOperationException ex)
             {
-                return Results.UnprocessableEntity(new { error = ex.Message });
+                return Results.Json(new { error = ex.Message }, statusCode: 422);
             }
-        });
+        }).RequireRateLimiting("analyze");
     }
 }

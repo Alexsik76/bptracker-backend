@@ -10,16 +10,18 @@ public class GeminiService : IGeminiService
 {
     private readonly HttpClient _http;
     private readonly GeminiSettings _settings;
+    private readonly ILogger<GeminiService> _logger;
 
     private const string Prompt =
         "Analyze this blood pressure monitor image. " +
         "Extract: 1. Systolic (top number) 2. Diastolic (middle number) 3. Pulse (bottom number). " +
         "Return ONLY a valid JSON object with keys: 'systolic', 'diastolic', 'pulse'. No markdown, no comments.";
 
-    public GeminiService(HttpClient http, IOptions<GeminiSettings> options)
+    public GeminiService(HttpClient http, IOptions<GeminiSettings> options, ILogger<GeminiService> logger)
     {
         _http = http;
         _settings = options.Value;
+        _logger = logger;
     }
 
     public async Task<ImageAnalysisResultDto> AnalyzeImageAsync(byte[] imageBytes, string mimeType)
@@ -48,7 +50,23 @@ public class GeminiService : IGeminiService
 
         var url = $"https://generativelanguage.googleapis.com/v1beta/models/{_settings.Model}:generateContent?key={_settings.ApiKey}";
         var response = await _http.PostAsJsonAsync(url, payload);
-        response.EnsureSuccessStatusCode();
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorBody = await response.Content.ReadAsStringAsync();
+            _logger.LogError("Gemini API {Status}: {Body}", (int)response.StatusCode, errorBody);
+
+            var geminiMessage = $"HTTP {(int)response.StatusCode}";
+            try
+            {
+                using var errDoc = JsonDocument.Parse(errorBody);
+                geminiMessage = errDoc.RootElement
+                    .GetProperty("error").GetProperty("message").GetString() ?? geminiMessage;
+            }
+            catch { }
+
+            throw new HttpRequestException(geminiMessage, null, response.StatusCode);
+        }
 
         var json = await response.Content.ReadAsStringAsync();
         using var doc = JsonDocument.Parse(json);

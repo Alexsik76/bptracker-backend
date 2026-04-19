@@ -5,6 +5,7 @@ using BpTracker.Api.Models;
 using Microsoft.EntityFrameworkCore;
 using Scalar.AspNetCore;
 using Npgsql;
+using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -26,11 +27,35 @@ builder.Services.Configure<GeminiSettings>(options =>
 });
 builder.Services.AddHttpClient<IGeminiService, GeminiService>();
 
+builder.Services.AddRateLimiter(options =>
+{
+    options.AddPolicy("analyze", ctx =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 10,
+                Window = TimeSpan.FromMinutes(1),
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                QueueLimit = 0
+            }));
+
+    options.OnRejected = async (ctx, token) =>
+    {
+        ctx.HttpContext.Response.StatusCode = 429;
+        await ctx.HttpContext.Response.WriteAsJsonAsync(
+            new { error = "Забагато запитів до AI. Спробуйте за хвилину." }, token);
+    };
+});
+
+var corsOrigins = (builder.Configuration["CORS_ORIGINS"] ?? "https://bptracker.home.vn.ua")
+    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
 builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>
     {
-        policy.AllowAnyOrigin()
+        policy.WithOrigins(corsOrigins)
               .AllowAnyMethod()
               .AllowAnyHeader();
     });
@@ -58,6 +83,7 @@ if (app.Environment.IsDevelopment())
 
 // Configure the HTTP request pipeline.
 app.UseCors();
+app.UseRateLimiter();
 
 app.MapMeasurementEndpoints();
 app.MapSchemaEndpoints();

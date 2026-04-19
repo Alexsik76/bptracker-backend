@@ -19,6 +19,7 @@ services:
       ConnectionStrings__DefaultConnection: "Host=db;Database=bp_tracker;Username=bp_user;Password=bp_password"
       GOOGLE_SCRIPT_URL: $GOOGLE_SCRIPT_URL
       GEMINI_API_KEY: $GEMINI_API_KEY
+      CORS_ORIGINS: ${CORS_ORIGINS:-https://bptracker.home.vn.ua}
       GEMINI_MODEL: $GEMINI_MODEL
     ports:
       - "5000:8080"

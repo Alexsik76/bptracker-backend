@@ -1,111 +1,93 @@
-# BP Tracker API
+# BP Tracker — Backend
 
-This is the backend for the Blood Pressure & Treatment System, built with C# .NET 10 Minimal APIs and PostgreSQL.
+REST API для системи відстеження артеріального тиску. Виступає також проксі до Gemini AI для розпізнавання знімків тонометра.
 
-## 🚀 Live API Documentation
-The interactive API documentation (Scalar UI) is available at:
-[https://api-bptracker.home.vn.ua/scalar/v1](https://api-bptracker.home.vn.ua/scalar/v1)
+## Стек
 
-## 🛠 Tech Stack
-- **Framework:** .NET 10 (Minimal APIs)
-- **Database:** PostgreSQL 16
-- **ORM:** Entity Framework Core (with Npgsql)
-- **API Docs:** Scalar API Reference (via Microsoft.AspNetCore.OpenApi)
-- **Containerization:** Docker & Docker Compose
+- **.NET 10** Minimal APIs
+- **PostgreSQL 16** + Entity Framework Core (Npgsql)
+- **Scalar UI** — інтерактивна документація
+- **Docker + Docker Compose** — розгортання
+- **Gemini AI** — OCR знімків тонометра
 
-## 📂 Project Structure
-```text
-backend/
-├── Data/               # AppDbContext & Migrations
-├── Models/             # Domain Entities (Measurement, TreatmentSchema)
-├── DTOs/               # Data Transfer Objects
-├── Services/           # Business Logic (IMeasurementService, ISchemaService)
-├── Endpoints/          # API Route Definitions
-├── Program.cs          # App Startup & Dependency Injection
-└── Dockerfile          # Multi-stage build for production
+## Структура проекту
+
+```
+├── Data/               AppDbContext, міграції EF Core
+├── Models/             Measurement, TreatmentSchema, GeminiSettings, GoogleSheetsSettings
+├── DTOs/               MeasurementDto, CreateMeasurementDto, ImageAnalysisResultDto
+├── Services/           IMeasurementService, ISchemaService, IGeminiService та реалізації
+├── Endpoints/          MeasurementEndpoints, SchemaEndpoints, SyncEndpoint, AnalyzeEndpoints
+├── Program.cs          Startup, DI, CORS, Rate Limiting, автоміграції
+└── Dockerfile          Multi-stage build (sdk → publish → runtime)
 ```
 
-## ⚙️ Local Development
-
-### Prerequisites
-- .NET 10 SDK
-- Docker Desktop / Docker Engine
-- `dotnet-ef` global tool (`dotnet tool install --global dotnet-ef`)
-
-### Setup
-1. **Clone the repository.**
-2. **Run the database:**
-   ```bash
-   docker-compose up db -d
-   ```
-3. **Run the API:**
-   ```bash
-   dotnet run
-   ```
-   The API will automatically apply migrations to the database on startup.
-
-### Database Migrations
-To add a new migration after changing models:
-```bash
-dotnet ef migrations add <MigrationName>
-dotnet ef database update
-```
-
-## 🔌 API Endpoints
+## API Endpoints
 
 ### Measurements
-- **`GET /api/measurements`**
-  - **Description:** Returns the last 30 measurements.
-  - **Response:** `200 OK`
-    ```json
-    [
-      {
-        "id": "uuid",
-        "recordedAt": "2024-04-17T12:00:00Z",
-        "sys": 120,
-        "dia": 80,
-        "pulse": 70
-      }
-    ]
-    ```
+| Метод | URL | Опис |
+|---|---|---|
+| `GET` | `/api/measurements` | Останні 30 вимірювань |
+| `POST` | `/api/measurements` | Додати вимірювання `{sys, dia, pulse}` |
+| `DELETE` | `/api/measurements/{id}` | Видалити вимірювання |
+| `POST` | `/api/measurements/analyze` | OCR фото тонометра → `{sys, dia, pulse}` |
 
-- **`POST /api/measurements`**
-  - **Description:** Adds a new measurement.
-  - **Request Body:**
-    ```json
-    {
-      "sys": 120,
-      "dia": 80,
-      "pulse": 70
-    }
-    ```
-  - **Response:** `201 Created` with the created object.
+### Schemas
+| Метод | URL | Опис |
+|---|---|---|
+| `GET` | `/api/schemas/active` | Активна схема лікування |
 
-### Treatment Schemas
-- **`GET /api/schemas/active`**
-  - **Description:** Returns the currently active treatment schedule.
-  - **Response:** `200 OK`
-    ```json
-    {
-      "id": "Schema_1",
-      "isActive": true,
-      "scheduleDocument": {
-        "08:00": "Lisinopril 10mg",
-        "20:00": "Amlodipine 5mg"
-      }
-    }
-    ```
-  - **Response:** `404 Not Found` if no active schema exists.
+### Sync
+| Метод | URL | Опис |
+|---|---|---|
+| `POST` | `/api/sync/google-sheets` | Синхронізація з Google Sheets |
 
-## 🐳 Docker Deployment
-To build and run the entire stack (API + DB):
+Інтерактивна документація: `https://api-bptracker.home.vn.ua/scalar/v1`
+
+## Змінні оточення
+
+| Змінна | Обов'язкова | За замовчуванням | Опис |
+|---|---|---|---|
+| `ConnectionStrings__DefaultConnection` | Так | — | PostgreSQL connection string |
+| `GEMINI_API_KEY` | Так | — | API ключ Google Gemini |
+| `GEMINI_MODEL` | Ні | `gemini-flash-latest` | Назва моделі Gemini |
+| `GOOGLE_SCRIPT_URL` | Ні | — | URL Google Apps Script для синхронізації |
+| `CORS_ORIGINS` | Ні | `https://bptracker.home.vn.ua` | Дозволені origins через кому |
+
+## Безпека
+
+- **Cloudflare WAF** — доступ обмежено по IP (лише домашня мережа)
+- **CORS** — дозволено лише `bptracker.home.vn.ua` (конфігурується через `CORS_ORIGINS`)
+- **Rate limiting** — `/api/measurements/analyze` обмежено до 10 запитів/хвилину per IP
+
+## Валідація даних
+
+PostgreSQL CHECK constraints + валідація в сервісному шарі:
+- Систолічний: 40–300
+- Діастолічний: 20–200
+- Пульс: 30–250
+
+## Локальна розробка
+
+**Потрібно:** .NET 10 SDK, Docker, `dotnet-ef` (`dotnet tool install -g dotnet-ef`)
+
+```bash
+# Запустити БД
+docker-compose up db -d
+
+# Запустити API (міграції застосуються автоматично)
+GEMINI_API_KEY=your_key dotnet run
+```
+
+```bash
+# Нова міграція після зміни моделей
+dotnet ef migrations add <Name>
+```
+
+## Docker розгортання
+
 ```bash
 docker-compose up --build
 ```
-The API will be exposed on port `5000` (mapped to `8080` internally).
 
-## 🔒 Data Integrity
-The system enforces data integrity at the database level using PostgreSQL `CHECK` constraints for:
-- **Systolic:** 40 - 300
-- **Diastolic:** 20 - 200
-- **Pulse:** 30 - 250
+API доступне на порту `5000` (внутрішньо `8080`). PostgreSQL на `5436`.
