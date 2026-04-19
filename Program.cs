@@ -21,7 +21,8 @@ builder.Services.AddScoped<ISchemaService, SchemaService>();
 builder.Services.Configure<GeminiSettings>(options =>
 {
     options.ApiKey = builder.Configuration["GEMINI_API_KEY"] ?? string.Empty;
-    options.Model = builder.Configuration["GEMINI_MODEL"] ?? "gemini-flash-latest";
+    var modelEnv = builder.Configuration["GEMINI_MODEL"];
+    options.Model = string.IsNullOrWhiteSpace(modelEnv) ? "gemini-flash-latest" : modelEnv;
 });
 builder.Services.AddHttpClient<IGeminiService, GeminiService>();
 
