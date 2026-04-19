@@ -18,6 +18,13 @@ builder.Services.AddOpenApi();
 builder.Services.AddScoped<IMeasurementService, MeasurementService>();
 builder.Services.AddScoped<ISchemaService, SchemaService>();
 
+builder.Services.Configure<GeminiSettings>(options =>
+{
+    options.ApiKey = builder.Configuration["GEMINI_API_KEY"] ?? string.Empty;
+    options.Model = builder.Configuration["GEMINI_MODEL"] ?? "gemini-flash-latest";
+});
+builder.Services.AddHttpClient<IGeminiService, GeminiService>();
+
 builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>
@@ -54,6 +61,7 @@ app.UseCors();
 app.MapMeasurementEndpoints();
 app.MapSchemaEndpoints();
 app.MapSyncEndpoints();
+app.MapAnalyzeEndpoints();
 
 // Automatically apply migrations on startup with retry logic
 using (var scope = app.Services.CreateScope())

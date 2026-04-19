@@ -18,6 +18,8 @@ services:
       ASPNETCORE_ENVIRONMENT: Development
       ConnectionStrings__DefaultConnection: "Host=db;Database=bp_tracker;Username=bp_user;Password=bp_password"
       GOOGLE_SCRIPT_URL: $GOOGLE_SCRIPT_URL
+      GEMINI_API_KEY: $GEMINI_API_KEY
+      GEMINI_MODEL: $GEMINI_MODEL
     ports:
       - "5000:8080"
     depends_on:
