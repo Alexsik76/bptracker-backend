@@ -55,12 +55,27 @@ public static class ExportEndpoints
         }).RequireAuthorization();
     }
 
+    private static readonly TimeZoneInfo _exportTz = ResolveExportTz();
+
+    private static TimeZoneInfo ResolveExportTz()
+    {
+        foreach (var id in new[] { "Europe/Kyiv", "Europe/Kiev", "FLE Standard Time" })
+        {
+            try { return TimeZoneInfo.FindSystemTimeZoneById(id); }
+            catch { }
+        }
+        return TimeZoneInfo.Utc;
+    }
+
     private static string BuildCsv(List<Measurement> measurements)
     {
         var sb = new StringBuilder();
         sb.AppendLine("timestamp,systolic,diastolic,pulse");
         foreach (var m in measurements)
-            sb.AppendLine(FormattableString.Invariant($"{m.RecordedAt:yyyy-MM-dd HH:mm:ss},{m.Sys},{m.Dia},{m.Pulse}"));
+        {
+            var local = TimeZoneInfo.ConvertTimeFromUtc(m.RecordedAt, _exportTz);
+            sb.AppendLine(FormattableString.Invariant($"{local:yyyy-MM-dd HH:mm:ss},{m.Sys},{m.Dia},{m.Pulse}"));
+        }
         return sb.ToString();
     }
 }
