@@ -2,16 +2,17 @@ using BpTracker.Api.Data;
 using BpTracker.Api.Endpoints;
 using BpTracker.Api.Services;
 using BpTracker.Api.Models;
+using BpTracker.Api.Middleware;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using System.Text.Json;
 using Scalar.AspNetCore;
-using Npgsql;
 using System.Threading.RateLimiting;
 using Serilog;
 using Serilog.Events;
 using Serilog.Formatting.Compact;
+using Fido2NetLib;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -33,6 +34,8 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 builder.Services.AddHttpClient();
 builder.Services.AddOpenApi();
 
+var geminiHealthClient = new HttpClient { Timeout = TimeSpan.FromSeconds(2) };
+
 builder.Services.AddHealthChecks()
     .AddNpgSql(connectionString!)
     .AddAsyncCheck("gemini", async () =>
@@ -41,22 +44,36 @@ builder.Services.AddHealthChecks()
         var model = builder.Configuration["GEMINI_MODEL"] ?? "gemini-flash-latest";
         if (string.IsNullOrEmpty(apiKey)) return HealthCheckResult.Unhealthy("Gemini API key is missing");
 
-        using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(2) };
         try
         {
-            var response = await client.GetAsync($"https://generativelanguage.googleapis.com/v1beta/models/{model}?key={apiKey}");
-            return response.IsSuccessStatusCode 
-                ? HealthCheckResult.Healthy() 
-                : HealthCheckResult.Unhealthy($"Gemini API returned {response.StatusCode}");
+            var response = await geminiHealthClient.GetAsync($"https://generativelanguage.googleapis.com/v1beta/models/{model}?key={apiKey}");
+            return response.IsSuccessStatusCode
+                ? HealthCheckResult.Healthy()
+                : HealthCheckResult.Unhealthy("Gemini API unavailable");
         }
-        catch (Exception ex)
+        catch
         {
-            return HealthCheckResult.Unhealthy($"Gemini API is unreachable: {ex.Message}");
+            return HealthCheckResult.Unhealthy("Gemini API is unreachable");
         }
     });
 
 builder.Services.AddScoped<IMeasurementService, MeasurementService>();
 builder.Services.AddScoped<ISchemaService, SchemaService>();
+builder.Services.AddScoped<IAuthService, AuthService>();
+
+builder.Services.Configure<SmtpSettings>(options =>
+{
+    options.Host = builder.Configuration["SMTP_HOST"] ?? string.Empty;
+    options.Port = int.TryParse(builder.Configuration["SMTP_PORT"], out var smtpPort) ? smtpPort : 587;
+    options.Username = builder.Configuration["SMTP_USER"] ?? string.Empty;
+    options.Password = builder.Configuration["SMTP_PASSWORD"] ?? string.Empty;
+    options.FromAddress = builder.Configuration["SMTP_FROM"] ?? string.Empty;
+    options.FromName = builder.Configuration["SMTP_FROM_NAME"] ?? "BP Tracker";
+    options.UseTls = builder.Configuration["SMTP_TLS"] != "false";
+});
+builder.Services.AddScoped<SmtpEmailSender>();
+builder.Services.AddScoped<IEmailSender, ResilientEmailSender>();
+builder.Services.AddHostedService<EmailOutboxWorker>();
 
 builder.Services.Configure<GeminiSettings>(options =>
 {
@@ -65,6 +82,27 @@ builder.Services.Configure<GeminiSettings>(options =>
     options.Model = string.IsNullOrWhiteSpace(modelEnv) ? "gemini-flash-latest" : modelEnv;
 });
 builder.Services.AddHttpClient<IGeminiService, GeminiService>();
+
+builder.Services.AddScoped<IFido2, Fido2>(sp => new Fido2(new Fido2Configuration
+{
+    ServerDomain = builder.Configuration["FIDO2_DOMAIN"] ?? "bptracker.home.vn.ua",
+    ServerName = "BP Tracker",
+    Origins = (builder.Configuration["CORS_ORIGINS"] ?? "https://bptracker.home.vn.ua")
+        .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+        .ToHashSet()
+}));
+
+builder.Services.AddDistributedMemoryCache(); // For storing Fido2 challenges
+builder.Services.AddSession(options =>
+{
+    options.IdleTimeout = TimeSpan.FromMinutes(5);
+    options.Cookie.HttpOnly = true;
+    options.Cookie.SameSite = SameSiteMode.Lax;
+    options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+});
+
+builder.Services.AddAuthentication();
+builder.Services.AddAuthorization();
 
 builder.Services.AddRateLimiter(options =>
 {
@@ -96,16 +134,10 @@ builder.Services.AddCors(options =>
     {
         policy.WithOrigins(corsOrigins)
               .AllowAnyMethod()
-              .AllowAnyHeader();
+              .AllowAnyHeader()
+              .AllowCredentials();
     });
 });
-builder.Services.Configure<GoogleSheetsSettings>(options =>
-{
-    options.ScriptUrl = builder.Configuration["GOOGLE_SCRIPT_URL"] ?? string.Empty;
-});
-
-
-
 var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
@@ -121,11 +153,13 @@ if (app.Environment.IsDevelopment())
 }
 
 // Configure the HTTP request pipeline.
-app.UseSerilogRequestLogging();
+
+// CORS must be first to handle OPTIONS preflight before any auth/session middleware
+app.UseCors();
 
 app.Use(async (context, next) =>
 {
-    var requestId = context.Request.Headers["X-Request-ID"].FirstOrDefault() 
+    var requestId = context.Request.Headers["X-Request-ID"].FirstOrDefault()
                     ?? Guid.NewGuid().ToString();
     using (Serilog.Context.LogContext.PushProperty("request_id", requestId))
     {
@@ -134,8 +168,18 @@ app.Use(async (context, next) =>
     }
 });
 
-app.UseCors();
+app.UseSerilogRequestLogging();
+
+// ASP.NET session (used by Fido2 for challenge storage) must come before endpoint handlers
+app.UseSession();
+
 app.UseRateLimiter();
+
+// Custom session middleware: reads __Host-session cookie, sets HttpContext.User
+app.UseMiddleware<SessionMiddleware>();
+
+app.UseAuthentication();
+app.UseAuthorization();
 
 app.MapHealthChecks("/api/v1/health", new HealthCheckOptions
 {
@@ -159,29 +203,32 @@ app.MapHealthChecks("/api/v1/health", new HealthCheckOptions
 
 app.MapMeasurementEndpoints();
 app.MapSchemaEndpoints();
-app.MapSyncEndpoints();
 app.MapAnalyzeEndpoints();
+app.MapAuthEndpoints();
+app.MapSettingsEndpoints();
+app.MapExportEndpoints();
 
-// Automatically apply migrations on startup with retry logic
+// Apply migrations on startup with retry (waits for DB container to be ready)
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
     var logger = services.GetRequiredService<ILogger<Program>>();
     var db = services.GetRequiredService<AppDbContext>();
 
-    for (int i = 0; i < 10; i++)
+    const int maxAttempts = 15;
+    for (int i = 0; i < maxAttempts; i++)
     {
         try
         {
             db.Database.Migrate();
-            logger.LogInformation("Database migrated successfully.");
+            logger.LogInformation("Database migrated successfully");
             break;
         }
-        catch (Exception ex) when (ex is System.Net.Sockets.SocketException or NpgsqlException)
+        catch (Exception ex)
         {
-            logger.LogWarning("Database is not ready yet. Retrying in 2 seconds... (Attempt {Attempt})", i + 1);
+            if (i == maxAttempts - 1) throw;
+            logger.LogWarning(ex, "Database not ready, retrying in 2 s (attempt {Attempt}/{Max})", i + 1, maxAttempts);
             Thread.Sleep(2000);
-            if (i == 9) throw;
         }
     }
 }

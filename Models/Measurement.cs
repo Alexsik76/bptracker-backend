@@ -16,4 +16,7 @@ public class Measurement
 
     [Range(30, 250)]
     public int Pulse { get; set; }
+
+    public Guid UserId { get; set; }
+    public User User { get; set; } = null!;
 }
