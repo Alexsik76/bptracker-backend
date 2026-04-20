@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using BpTracker.Api.DTOs;
 using BpTracker.Api.Services;
 
@@ -7,20 +8,25 @@ public static class MeasurementEndpoints
 {
     public static void MapMeasurementEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/api/v1/measurements");
+        var group = app.MapGroup("/api/v1/measurements").RequireAuthorization();
 
-        group.MapGet("/", async (IMeasurementService service) => 
-            Results.Ok(await service.GetRecentAsync()));
-
-        group.MapPost("/", async (CreateMeasurementDto dto, IMeasurementService service) =>
+        group.MapGet("/", async (ClaimsPrincipal user, IMeasurementService service) => 
         {
-            var result = await service.CreateAsync(dto);
+            var userId = Guid.Parse(user.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            return Results.Ok(await service.GetRecentAsync(userId));
+        });
+
+        group.MapPost("/", async (ClaimsPrincipal user, CreateMeasurementDto dto, IMeasurementService service) =>
+        {
+            var userId = Guid.Parse(user.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            var result = await service.CreateAsync(userId, dto);
             return Results.Created($"/api/v1/measurements/{result.Id}", result);
         });
 
-        group.MapDelete("/{id:guid}", async (Guid id, IMeasurementService service) =>
+        group.MapDelete("/{id:guid}", async (ClaimsPrincipal user, Guid id, IMeasurementService service) =>
         {
-            var success = await service.DeleteAsync(id);
+            var userId = Guid.Parse(user.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            var success = await service.DeleteAsync(userId, id);
             return success ? Results.NoContent() : Results.NotFound();
         });
     }

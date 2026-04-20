@@ -2,6 +2,7 @@ using BpTracker.Api.Data;
 using BpTracker.Api.Endpoints;
 using BpTracker.Api.Services;
 using BpTracker.Api.Models;
+using BpTracker.Api.Middleware;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
@@ -12,6 +13,7 @@ using System.Threading.RateLimiting;
 using Serilog;
 using Serilog.Events;
 using Serilog.Formatting.Compact;
+using Fido2NetLib;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -57,6 +59,7 @@ builder.Services.AddHealthChecks()
 
 builder.Services.AddScoped<IMeasurementService, MeasurementService>();
 builder.Services.AddScoped<ISchemaService, SchemaService>();
+builder.Services.AddScoped<IAuthService, AuthService>();
 
 builder.Services.Configure<GeminiSettings>(options =>
 {
@@ -65,6 +68,36 @@ builder.Services.Configure<GeminiSettings>(options =>
     options.Model = string.IsNullOrWhiteSpace(modelEnv) ? "gemini-flash-latest" : modelEnv;
 });
 builder.Services.AddHttpClient<IGeminiService, GeminiService>();
+
+builder.Services.AddScoped<IFido2, Fido2>(sp => new Fido2(new Fido2Configuration
+{
+    ServerDomain = builder.Configuration["FIDO2_DOMAIN"] ?? "bptracker.home.vn.ua",
+    ServerName = "BP Tracker",
+    Origins = (builder.Configuration["CORS_ORIGINS"] ?? "https://bptracker.home.vn.ua")
+        .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+        .ToHashSet()
+}));
+
+builder.Services.AddDistributedMemoryCache(); // For storing Fido2 challenges
+builder.Services.AddSession(options =>
+{
+    options.IdleTimeout = TimeSpan.FromMinutes(5);
+    options.Cookie.HttpOnly = true;
+    options.Cookie.SameSite = SameSiteMode.Lax;
+    options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+});
+
+builder.Services.AddAuthentication("Session")
+    .AddCookie("Session", options =>
+    {
+        options.Cookie.Name = "__Host-session";
+        options.Events.OnRedirectToLogin = context =>
+        {
+            context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+            return Task.CompletedTask;
+        };
+    });
+builder.Services.AddAuthorization();
 
 builder.Services.AddRateLimiter(options =>
 {
@@ -123,6 +156,8 @@ if (app.Environment.IsDevelopment())
 // Configure the HTTP request pipeline.
 app.UseSerilogRequestLogging();
 
+app.UseMiddleware<SessionMiddleware>();
+
 app.Use(async (context, next) =>
 {
     var requestId = context.Request.Headers["X-Request-ID"].FirstOrDefault() 
@@ -136,6 +171,10 @@ app.Use(async (context, next) =>
 
 app.UseCors();
 app.UseRateLimiter();
+app.UseSession();
+
+app.UseAuthentication();
+app.UseAuthorization();
 
 app.MapHealthChecks("/api/v1/health", new HealthCheckOptions
 {
@@ -161,6 +200,7 @@ app.MapMeasurementEndpoints();
 app.MapSchemaEndpoints();
 app.MapSyncEndpoints();
 app.MapAnalyzeEndpoints();
+app.MapAuthEndpoints();
 
 // Automatically apply migrations on startup with retry logic
 using (var scope = app.Services.CreateScope())
