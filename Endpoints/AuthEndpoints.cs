@@ -156,7 +156,7 @@ public static class AuthEndpoints
             var token = await auth.CreateMagicLinkAsync(dto.Email);
             
             var appUrl = config["APP_URL"]?.TrimEnd('/') ?? "https://bptracker.home.vn.ua";
-            var consumeUrl = $"{appUrl}/?token={token}";
+            var consumeUrl = $"{appUrl}/login?token={token}";
 
             try
             {
