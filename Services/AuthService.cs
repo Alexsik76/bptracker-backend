@@ -94,12 +94,17 @@ public class AuthService : IAuthService
         }
     }
 
-    public async Task<string?> CreateMagicLinkAsync(string email)
+    public async Task<bool> CanRequestMagicLinkAsync(string email)
     {
         var window = DateTime.UtcNow.AddMinutes(-MagicLinkMinutes);
         var recentCount = await _db.MagicLinks
             .CountAsync(l => l.Email == email && l.CreatedAt >= window);
-        if (recentCount >= 3)
+        return recentCount < 3;
+    }
+
+    public async Task<string?> CreateMagicLinkAsync(string email)
+    {
+        if (!await CanRequestMagicLinkAsync(email))
             return null;
 
         var token = GenerateSecureToken();

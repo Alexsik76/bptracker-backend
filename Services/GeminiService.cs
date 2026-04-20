@@ -78,6 +78,13 @@ public class GeminiService : IGeminiService
             .GetProperty("text")
             .GetString() ?? throw new InvalidOperationException("Gemini повернув порожню відповідь");
 
+        // Clean markdown if present
+        text = text.Trim();
+        if (text.StartsWith("```json")) text = text.Substring(7);
+        else if (text.StartsWith("```")) text = text.Substring(3);
+        if (text.EndsWith("```")) text = text.Substring(0, text.Length - 3);
+        text = text.Trim();
+
         using var result = JsonDocument.Parse(text);
         var root = result.RootElement;
 
@@ -94,9 +101,15 @@ public class GeminiService : IGeminiService
 
     private static int GetInt(JsonElement root, string key)
     {
-        var el = root.GetProperty(key);
-        return el.ValueKind == JsonValueKind.Number
-            ? (int)el.GetDouble()
-            : throw new InvalidOperationException($"Не вдалося прочитати поле '{key}'");
+        if (!root.TryGetProperty(key, out var el))
+            throw new InvalidOperationException($"Поле '{key}' відсутнє у відповіді AI");
+
+        if (el.ValueKind == JsonValueKind.Number)
+            return (int)el.GetDouble();
+
+        if (el.ValueKind == JsonValueKind.String && int.TryParse(el.GetString(), out var val))
+            return val;
+
+        throw new InvalidOperationException($"Не вдалося прочитати число з поля '{key}' (тип: {el.ValueKind})");
     }
 }

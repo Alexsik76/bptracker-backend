@@ -149,14 +149,14 @@ public static class AuthEndpoints
         // Magic Link
         group.MapPost("/magic-link/request", async (MagicLinkRequestDto dto, IAuthService auth, IEmailSender emailSender, IConfiguration config, ILogger<AuthEndpointsLogger> logger) =>
         {
-            var token = await auth.CreateMagicLinkAsync(dto.Email);
-            if (token == null)
-                return Results.StatusCode(StatusCodes.Status429TooManyRequests);
+            // Rate limiting check as per plan_status.md
+            var canRequest = await auth.CanRequestMagicLinkAsync(dto.Email);
+            if (!canRequest) return Results.StatusCode(StatusCodes.Status429TooManyRequests);
 
-            var appUrl = config["APP_URL"]?.TrimEnd('/') ?? string.Empty;
-            var consumeUrl = string.IsNullOrEmpty(appUrl)
-                ? $"/api/v1/auth/magic-link/consume?token={token}"
-                : $"{appUrl}/auth/consume?token={token}";
+            var token = await auth.CreateMagicLinkAsync(dto.Email);
+            
+            var appUrl = config["APP_URL"]?.TrimEnd('/') ?? "https://bptracker.home.vn.ua";
+            var consumeUrl = $"{appUrl}/?token={token}";
 
             try
             {
@@ -169,14 +169,14 @@ public static class AuthEndpoints
             }
             catch (Exception ex)
             {
-                // ResilientEmailSender already saved to outbox; log total failure (e.g. DB also down)
-                logger.LogError(ex, "Failed to queue magic link email for {Email}", dto.Email);
+                logger.LogError(ex, "Failed to send magic link to {Email}", dto.Email);
+                // Even if sending fails, we return Accepted because it might be in outbox
             }
 
             return Results.Accepted();
         });
 
-        group.MapGet("/magic-link/consume", async (string token, IAuthService auth, HttpContext ctx) =>
+        group.MapGet("/consume", async (string token, IAuthService auth, HttpContext ctx) =>
         {
             var email = await auth.ConsumeMagicLinkAsync(token);
             if (email == null) return Results.BadRequest("Invalid or expired magic link");
@@ -184,7 +184,8 @@ public static class AuthEndpoints
             var user = await auth.GetUserByEmailAsync(email) ?? await auth.CreateUserAsync(email);
             
             await SignInUserAsync(ctx, auth, user.Id);
-            return Results.Redirect("/"); // Frontend will handle redirect after cookie is set
+            
+            return Results.Ok(new { status = "success", email = user.Email });
         });
     }
 

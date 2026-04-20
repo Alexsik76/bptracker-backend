@@ -6,6 +6,8 @@ services:
       POSTGRES_USER: bp_user
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: bp_tracker
+      TZ: Europe/Kyiv
+      PGTZ: Europe/Kyiv
     ports:
       - "5436:5432"
     volumes:
@@ -21,6 +23,7 @@ services:
     container_name: bptracker-api
     restart: unless-stopped
     environment:
+      TZ: Europe/Kyiv
       ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
       ConnectionStrings__DefaultConnection: "Host=db;Database=bp_tracker;Username=bp_user;Password=${POSTGRES_PASSWORD}"
       GEMINI_API_KEY: ${GEMINI_API_KEY}
@@ -48,6 +51,7 @@ services:
     container_name: bptracker-pg-backup
     restart: always
     environment:
+      TZ: Europe/Kyiv
       POSTGRES_HOST: db
       POSTGRES_DB: bp_tracker
       POSTGRES_USER: bp_user
