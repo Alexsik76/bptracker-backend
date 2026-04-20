@@ -1,7 +1,10 @@
 services:
   db:
-    image: postgres:16
+    image: postgres:16-alpine
     container_name: bptracker-db
+    # Workaround for Europe/Kiev vs Europe/Kyiv issue in DBeaver/JDBC
+    command: >
+      sh -c "ln -sf /usr/share/zoneinfo/Europe/Kyiv /usr/share/zoneinfo/Europe/Kiev && exec docker-entrypoint.sh postgres"
     environment:
       POSTGRES_USER: bp_user
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
