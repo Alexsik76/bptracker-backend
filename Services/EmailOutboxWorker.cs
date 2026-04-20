@@ -9,7 +9,7 @@ public class EmailOutboxWorker : BackgroundService
 {
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<EmailOutboxWorker> _logger;
-    private static readonly TimeSpan PollInterval = TimeSpan.FromMinutes(5);
+    private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(30);
     private const int MaxAttempts = 10;
 
     public EmailOutboxWorker(IServiceScopeFactory scopeFactory, ILogger<EmailOutboxWorker> logger)
