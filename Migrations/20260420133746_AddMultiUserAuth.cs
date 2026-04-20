@@ -24,7 +24,7 @@ namespace BpTracker.Api.Migrations
                     table.PrimaryKey("PK_Users", x => x.Id);
                 });
 
-            var legacyUserId = Guid.NewGuid();
+            const string legacyUserId = "a1b2c3d4-0000-0000-0000-000000000001";
             migrationBuilder.Sql($"INSERT INTO \"Users\" (\"Id\", \"Email\", \"CreatedAt\") VALUES ('{legacyUserId}', 'legacy@local', NOW())");
 
             migrationBuilder.AddColumn<Guid>(

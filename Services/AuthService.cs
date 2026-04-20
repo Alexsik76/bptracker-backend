@@ -94,21 +94,27 @@ public class AuthService : IAuthService
         }
     }
 
-    public async Task<string> CreateMagicLinkAsync(string email)
+    public async Task<string?> CreateMagicLinkAsync(string email)
     {
+        var window = DateTime.UtcNow.AddMinutes(-MagicLinkMinutes);
+        var recentCount = await _db.MagicLinks
+            .CountAsync(l => l.Email == email && l.CreatedAt >= window);
+        if (recentCount >= 3)
+            return null;
+
         var token = GenerateSecureToken();
         var hash = HashToken(token);
-        
+
         var link = new MagicLink
         {
             Email = email,
             TokenHash = hash,
             ExpiresAt = DateTime.UtcNow.AddMinutes(MagicLinkMinutes)
         };
-        
+
         _db.MagicLinks.Add(link);
         await _db.SaveChangesAsync();
-        
+
         return token;
     }
 

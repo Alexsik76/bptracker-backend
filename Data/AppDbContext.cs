@@ -47,8 +47,7 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<EmailOutbox>(entity =>
         {
             entity.HasKey(e => e.Id);
-            entity.HasIndex(e => e.Status);
-            entity.HasIndex(e => e.NextAttemptAt);
+            entity.HasIndex(e => new { e.Status, e.NextAttemptAt });
             entity.Property(e => e.AttachmentsJson).HasColumnType("jsonb");
         });
 

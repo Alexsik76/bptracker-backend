@@ -14,6 +14,6 @@ public interface IAuthService
     Task<User?> GetUserBySessionTokenAsync(string token);
     Task InvalidateSessionAsync(string token);
     
-    Task<string> CreateMagicLinkAsync(string email);
+    Task<string?> CreateMagicLinkAsync(string email);
     Task<string?> ConsumeMagicLinkAsync(string token);
 }

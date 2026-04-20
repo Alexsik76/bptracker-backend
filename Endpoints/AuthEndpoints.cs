@@ -5,6 +5,7 @@ using BpTracker.Api.Services;
 using Fido2NetLib;
 using Fido2NetLib.Objects;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Configuration;
 
 namespace BpTracker.Api.Endpoints;
 
@@ -94,7 +95,7 @@ public static class AuthEndpoints
                 CredentialId = success.Id,
                 PublicKey = success.PublicKey,
                 SignCount = success.SignCount,
-                DeviceName = attestationResponse.Response.AttestationObject.ToString(),
+                DeviceName = "Unknown Device",
                 CreatedAt = DateTime.UtcNow
             };
 
@@ -132,7 +133,11 @@ public static class AuthEndpoints
                 OriginalOptions = options,
                 StoredPublicKey = credential.PublicKey,
                 StoredSignatureCounter = credential.SignCount,
-                IsUserHandleOwnerOfCredentialIdCallback = (args, ct) => Task.FromResult(true)
+                IsUserHandleOwnerOfCredentialIdCallback = (args, ct) =>
+                {
+                    var userId = new Guid(args.UserHandle);
+                    return Task.FromResult(credential.UserId == userId);
+                }
             });
 
             await auth.UpdateCredentialSignCountAsync(credential.CredentialId, success.SignCount);
@@ -142,14 +147,32 @@ public static class AuthEndpoints
         });
 
         // Magic Link
-        group.MapPost("/magic-link/request", async (MagicLinkRequestDto dto, IAuthService auth, ILogger<AuthEndpointsLogger> logger) =>
+        group.MapPost("/magic-link/request", async (MagicLinkRequestDto dto, IAuthService auth, IEmailSender emailSender, IConfiguration config, ILogger<AuthEndpointsLogger> logger) =>
         {
             var token = await auth.CreateMagicLinkAsync(dto.Email);
-            var url = $"/api/v1/auth/magic-link/consume?token={token}";
-            
-            // Phase 1: Log to stdout as per plan
-            logger.LogInformation("MAGIC LINK REQUESTED for {Email}. URL: {Url}", dto.Email, url);
-            
+            if (token == null)
+                return Results.StatusCode(StatusCodes.Status429TooManyRequests);
+
+            var appUrl = config["APP_URL"]?.TrimEnd('/') ?? string.Empty;
+            var consumeUrl = string.IsNullOrEmpty(appUrl)
+                ? $"/api/v1/auth/magic-link/consume?token={token}"
+                : $"{appUrl}/auth/consume?token={token}";
+
+            try
+            {
+                await emailSender.SendAsync(
+                    dto.Email,
+                    "Ваше посилання для входу в BP Tracker",
+                    $"Перейдіть за посиланням для входу (дійсне 15 хвилин):\n\n{consumeUrl}\n\nЯкщо ви не запитували це посилання — просто ігноруйте цей лист.",
+                    [],
+                    default);
+            }
+            catch (Exception ex)
+            {
+                // ResilientEmailSender already saved to outbox; log total failure (e.g. DB also down)
+                logger.LogError(ex, "Failed to queue magic link email for {Email}", dto.Email);
+            }
+
             return Results.Accepted();
         });
 
