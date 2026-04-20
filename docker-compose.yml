@@ -64,3 +64,4 @@ services:
 
 volumes:
   pgdata:
+  dataprotection-keys:
