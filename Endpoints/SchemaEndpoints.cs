@@ -6,7 +6,7 @@ public static class SchemaEndpoints
 {
     public static void MapSchemaEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/api/schemas");
+        var group = app.MapGroup("/api/v1/schemas");
 
         group.MapGet("/active", async (ISchemaService service) =>
         {

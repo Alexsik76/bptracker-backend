@@ -26,5 +26,23 @@ services:
     depends_on:
       - db
 
+  pg-backup:
+    image: prodrigestivill/postgres-backup-local
+    container_name: bptracker-pg-backup
+    restart: always
+    environment:
+      POSTGRES_HOST: db
+      POSTGRES_DB: bp_tracker
+      POSTGRES_USER: bp_user
+      POSTGRES_PASSWORD: bp_password
+      SCHEDULE: "0 3 * * *"
+      BACKUP_KEEP_DAYS: 7
+      BACKUP_KEEP_WEEKS: 4
+      BACKUP_KEEP_MONTHS: 3
+    volumes:
+      - ./backups:/backups
+    depends_on:
+      - db
+
 volumes:
   pgdata:

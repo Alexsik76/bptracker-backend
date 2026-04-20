@@ -9,7 +9,7 @@ public static class SyncEndpoints
 {
     public static void MapSyncEndpoints(this IEndpointRouteBuilder app)
     {
-        app.MapPost("/api/sync/google-sheets", async (
+        app.MapPost("/api/v1/sync/google-sheets", async (
             AppDbContext db, 
             IHttpClientFactory httpClientFactory, 
             IOptions<GoogleSheetsSettings> settings) =>

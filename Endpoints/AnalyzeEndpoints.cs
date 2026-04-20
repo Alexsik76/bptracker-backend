@@ -8,7 +8,7 @@ public static class AnalyzeEndpoints
 
     public static void MapAnalyzeEndpoints(this IEndpointRouteBuilder app)
     {
-        app.MapPost("/api/measurements/analyze", async (HttpContext ctx, IGeminiService gemini) =>
+        app.MapPost("/api/v1/measurements/analyze", async (HttpContext ctx, IGeminiService gemini) =>
         {
 
             if (!ctx.Request.HasFormContentType)

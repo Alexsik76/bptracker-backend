@@ -27,20 +27,20 @@ REST API для системи відстеження артеріального
 ### Measurements
 | Метод | URL | Опис |
 |---|---|---|
-| `GET` | `/api/measurements` | Останні 30 вимірювань |
-| `POST` | `/api/measurements` | Додати вимірювання `{sys, dia, pulse}` |
-| `DELETE` | `/api/measurements/{id}` | Видалити вимірювання |
-| `POST` | `/api/measurements/analyze` | OCR фото тонометра → `{sys, dia, pulse}` |
+| `GET` | `/api/v1/measurements` | Останні 30 вимірювань |
+| `POST` | `/api/v1/measurements` | Додати вимірювання `{sys, dia, pulse}` |
+| `DELETE` | `/api/v1/measurements/{id}` | Видалити вимірювання |
+| `POST` | `/api/v1/measurements/analyze` | OCR фото тонометра → `{sys, dia, pulse}` |
 
 ### Schemas
 | Метод | URL | Опис |
 |---|---|---|
-| `GET` | `/api/schemas/active` | Активна схема лікування |
+| `GET` | `/api/v1/schemas/active` | Активна схема лікування |
 
 ### Sync
 | Метод | URL | Опис |
 |---|---|---|
-| `POST` | `/api/sync/google-sheets` | Синхронізація з Google Sheets |
+| `POST` | `/api/v1/sync/google-sheets` | Синхронізація з Google Sheets |
 
 Інтерактивна документація: `https://api-bptracker.home.vn.ua/scalar/v1`
 
@@ -58,7 +58,7 @@ REST API для системи відстеження артеріального
 
 - **Cloudflare WAF** — доступ обмежено по IP (лише домашня мережа)
 - **CORS** — дозволено лише `bptracker.home.vn.ua` (конфігурується через `CORS_ORIGINS`)
-- **Rate limiting** — `/api/measurements/analyze` обмежено до 10 запитів/хвилину per IP
+- **Rate limiting** — `/api/v1/measurements/analyze` обмежено до 10 запитів/хвилину per IP
 
 ## Валідація даних
 
@@ -91,3 +91,15 @@ docker-compose up --build
 ```
 
 API доступне на порту `5000` (внутрішньо `8080`). PostgreSQL на `5436`.
+
+## Відновлення з бекапу
+
+Бекапи створюються автоматично контейнером `pg-backup` і зберігаються в директорії `./backups`.
+
+Щоб відновити базу з дампа:
+1. Визначте потрібний файл у `./backups/daily/` (або weekly/monthly).
+2. Виконайте команду:
+```bash
+docker exec -i bptracker-db psql -U bp_user -d bp_tracker < ./backups/daily/bp_tracker-YYYYMMDD-HHMMSS.sql
+```
+*Примітка: якщо база не порожня, можливо знадобиться її спочатку очистити або видалити та створити наново.*

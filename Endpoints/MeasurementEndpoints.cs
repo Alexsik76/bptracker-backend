@@ -7,7 +7,7 @@ public static class MeasurementEndpoints
 {
     public static void MapMeasurementEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/api/measurements");
+        var group = app.MapGroup("/api/v1/measurements");
 
         group.MapGet("/", async (IMeasurementService service) => 
             Results.Ok(await service.GetRecentAsync()));
@@ -15,7 +15,7 @@ public static class MeasurementEndpoints
         group.MapPost("/", async (CreateMeasurementDto dto, IMeasurementService service) =>
         {
             var result = await service.CreateAsync(dto);
-            return Results.Created($"/api/measurements/{result.Id}", result);
+            return Results.Created($"/api/v1/measurements/{result.Id}", result);
         });
 
         group.MapDelete("/{id:guid}", async (Guid id, IMeasurementService service) =>
