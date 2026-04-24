@@ -64,6 +64,7 @@ public static class ExportEndpoints
             try { return TimeZoneInfo.FindSystemTimeZoneById(id); }
             catch { }
         }
+        Console.Error.WriteLine("[ExportEndpoints] WARNING: Kyiv timezone not found — CSV will use UTC. Install tzdata.");
         return TimeZoneInfo.Utc;
     }
 
