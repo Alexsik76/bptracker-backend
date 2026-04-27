@@ -48,8 +48,11 @@ public class GeminiService : IGeminiService
             }
         };
 
-        var url = $"https://generativelanguage.googleapis.com/v1beta/models/{_settings.Model}:generateContent?key={_settings.ApiKey}";
-        var response = await _http.PostAsJsonAsync(url, payload);
+        var url = $"https://generativelanguage.googleapis.com/v1beta/models/{_settings.Model}:generateContent";
+        using var request = new HttpRequestMessage(HttpMethod.Post, url);
+        request.Headers.Add("x-goog-api-key", _settings.ApiKey);
+        request.Content = JsonContent.Create(payload);
+        var response = await _http.SendAsync(request);
 
         if (!response.IsSuccessStatusCode)
         {

@@ -6,6 +6,7 @@ using BpTracker.Api.Middleware;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using System.Security.Claims;
 using System.Text.Json;
 using Scalar.AspNetCore;
 using System.Threading.RateLimiting;
@@ -106,9 +107,28 @@ builder.Services.AddAuthorization();
 
 builder.Services.AddRateLimiter(options =>
 {
+    // Per-user rate limit; falls back to IP if userId is unavailable (should not happen on auth'd endpoint)
     options.AddPolicy("analyze", ctx =>
+    {
+        var userId = ctx.User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (userId is null)
+        {
+            Log.Warning("Rate limit: userId missing on /analyze, falling back to IP");
+            userId = "ip:" + (ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown");
+        }
+        return RateLimitPartition.GetFixedWindowLimiter(userId, _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 10,
+            Window = TimeSpan.FromMinutes(1),
+            QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+            QueueLimit = 0
+        });
+    });
+
+    // Per-IP rate limit for unauthenticated Fido2 challenge endpoints
+    options.AddPolicy("auth-challenge", ctx =>
         RateLimitPartition.GetFixedWindowLimiter(
-            ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            "ip:" + (ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown"),
             _ => new FixedWindowRateLimiterOptions
             {
                 PermitLimit = 10,
@@ -121,7 +141,7 @@ builder.Services.AddRateLimiter(options =>
     {
         ctx.HttpContext.Response.StatusCode = 429;
         await ctx.HttpContext.Response.WriteAsJsonAsync(
-            new { error = "Забагато запитів до AI. Спробуйте за хвилину." }, token);
+            new { error = "Забагато запитів. Спробуйте пізніше." }, token);
     };
 });
 
@@ -173,10 +193,11 @@ app.UseSerilogRequestLogging();
 // ASP.NET session (used by Fido2 for challenge storage) must come before endpoint handlers
 app.UseSession();
 
-app.UseRateLimiter();
-
 // Custom session middleware: reads __Host-session cookie, sets HttpContext.User
+// Must run before UseRateLimiter so the "analyze" policy can partition by userId
 app.UseMiddleware<SessionMiddleware>();
+
+app.UseRateLimiter();
 
 app.UseAuthentication();
 app.UseAuthorization();
@@ -234,3 +255,5 @@ using (var scope = app.Services.CreateScope())
 }
 
 app.Run();
+
+public partial class Program { }

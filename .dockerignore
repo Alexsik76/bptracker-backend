@@ -1,4 +1,5 @@
 # Ignored directories
+BpTracker.Api.Tests/
 bin/
 obj/
 .git/

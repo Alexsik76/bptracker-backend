@@ -67,7 +67,7 @@ public static class AuthEndpoints
             
             ctx.Session.SetString(SessionKeyOptions, options.ToJson());
             return Results.Ok(options);
-        });
+        }).RequireRateLimiting("auth-challenge");
 
         group.MapPost("/passkey/register/complete", async ([FromBody] AuthenticatorAttestationRawResponse attestationResponse, IFido2 fido2, IAuthService auth, HttpContext ctx) =>
         {
@@ -115,7 +115,7 @@ public static class AuthEndpoints
             });
             ctx.Session.SetString(SessionKeyOptions, options.ToJson());
             return Results.Ok(options);
-        });
+        }).RequireRateLimiting("auth-challenge");
 
         group.MapPost("/login/complete", async ([FromBody] AuthenticatorAssertionRawResponse clientResponse, IFido2 fido2, IAuthService auth, HttpContext ctx) =>
         {
@@ -176,17 +176,27 @@ public static class AuthEndpoints
             return Results.Accepted();
         });
 
-        group.MapGet("/consume", async (string token, IAuthService auth, HttpContext ctx) =>
+        // New: token in POST body — keeps it out of server access logs
+        group.MapPost("/magic-link/consume", async (MagicLinkConsumeRequest body, IAuthService auth, HttpContext ctx) =>
         {
-            var email = await auth.ConsumeMagicLinkAsync(token);
+            var email = await auth.ConsumeMagicLinkAsync(body.Token);
             if (email == null) return Results.BadRequest("Invalid or expired magic link");
 
             var user = await auth.GetUserByEmailAsync(email) ?? await auth.CreateUserAsync(email);
-            
+
             await SignInUserAsync(ctx, auth, user.Id);
-            
+
             return Results.Ok(new { status = "success", email = user.Email });
         });
+
+        // Deprecated stub — kept for in-flight emails already sent with old links
+        group.MapGet("/consume", () =>
+            Results.Json(new ProblemDetails
+            {
+                Status = StatusCodes.Status410Gone,
+                Title = "Endpoint removed",
+                Detail = "Use POST /api/v1/auth/magic-link/consume with { \"token\": \"...\" } in the request body."
+            }, statusCode: StatusCodes.Status410Gone));
     }
 
     private static async Task SignInUserAsync(HttpContext ctx, IAuthService auth, Guid userId)

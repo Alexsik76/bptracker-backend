@@ -18,6 +18,8 @@ public static class MeasurementEndpoints
 
         group.MapPost("/", async (ClaimsPrincipal user, CreateMeasurementDto dto, IMeasurementService service) =>
         {
+            if (dto.Sys is < 40 or > 300 || dto.Dia is < 20 or > 200 || dto.Pulse is < 30 or > 250)
+                return Results.BadRequest(new { error = "Values out of valid range" });
             var userId = Guid.Parse(user.FindFirstValue(ClaimTypes.NameIdentifier)!);
             var result = await service.CreateAsync(userId, dto);
             return Results.Created($"/api/v1/measurements/{result.Id}", result);
