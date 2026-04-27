@@ -1,3 +1,5 @@
+using System.Security.Claims;
+using BpTracker.Api.Data;
 using BpTracker.Api.Services;
 
 namespace BpTracker.Api.Endpoints;
@@ -8,9 +10,8 @@ public static class AnalyzeEndpoints
 
     public static void MapAnalyzeEndpoints(this IEndpointRouteBuilder app)
     {
-        app.MapPost("/api/v1/measurements/analyze", async (HttpContext ctx, IGeminiService gemini) =>
+        app.MapPost("/api/v1/measurements/analyze", async (HttpContext ctx, IGeminiService gemini, AppDbContext db) =>
         {
-
             if (!ctx.Request.HasFormContentType)
                 return Results.BadRequest(new { error = "Очікується multipart/form-data" });
 
@@ -26,12 +27,16 @@ public static class AnalyzeEndpoints
             if (file.Length > MaxFileSizeBytes)
                 return Results.BadRequest(new { error = "Файл перевищує 10 МБ" });
 
+            var userId = Guid.Parse(ctx.User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            var userSettings = await db.UserSettings.FindAsync(userId);
+            var customUrl = userSettings?.GeminiUrl;
+
             using var ms = new MemoryStream();
             await file.CopyToAsync(ms);
 
             try
             {
-                var result = await gemini.AnalyzeImageAsync(ms.ToArray(), file.ContentType);
+                var result = await gemini.AnalyzeImageAsync(ms.ToArray(), file.ContentType, customUrl);
                 return Results.Ok(result);
             }
             catch (HttpRequestException ex)

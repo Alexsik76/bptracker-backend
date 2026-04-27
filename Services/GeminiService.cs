@@ -24,7 +24,7 @@ public class GeminiService : IGeminiService
         _logger = logger;
     }
 
-    public async Task<ImageAnalysisResultDto> AnalyzeImageAsync(byte[] imageBytes, string mimeType)
+    public async Task<ImageAnalysisResultDto> AnalyzeImageAsync(byte[] imageBytes, string mimeType, string? customUrl = null)
     {
         var base64 = Convert.ToBase64String(imageBytes);
 
@@ -48,9 +48,28 @@ public class GeminiService : IGeminiService
             }
         };
 
-        var url = $"https://generativelanguage.googleapis.com/v1beta/models/{_settings.Model}:generateContent";
-        using var request = new HttpRequestMessage(HttpMethod.Post, url);
-        request.Headers.Add("x-goog-api-key", _settings.ApiKey);
+        string endpointUrl;
+        bool sendApiKey;
+
+        if (!string.IsNullOrEmpty(customUrl))
+        {
+            // User-configured URL already includes auth (e.g. ?key=... query param)
+            endpointUrl = customUrl;
+            sendApiKey = false;
+        }
+        else if (!string.IsNullOrEmpty(_settings.ApiKey))
+        {
+            endpointUrl = $"https://generativelanguage.googleapis.com/v1beta/models/{_settings.Model}:generateContent";
+            sendApiKey = true;
+        }
+        else
+        {
+            throw new InvalidOperationException("Gemini не налаштований. Вкажіть Gemini API URL у налаштуваннях.");
+        }
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, endpointUrl);
+        if (sendApiKey)
+            request.Headers.Add("x-goog-api-key", _settings.ApiKey);
         request.Content = JsonContent.Create(payload);
         var response = await _http.SendAsync(request);
 
