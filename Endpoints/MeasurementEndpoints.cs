@@ -10,10 +10,11 @@ public static class MeasurementEndpoints
     {
         var group = app.MapGroup("/api/v1/measurements").RequireAuthorization();
 
-        group.MapGet("/", async (ClaimsPrincipal user, IMeasurementService service) => 
+        group.MapGet("/", async (ClaimsPrincipal user, IMeasurementService service, int days = 90) =>
         {
+            days = Math.Clamp(days, 1, 365);
             var userId = Guid.Parse(user.FindFirstValue(ClaimTypes.NameIdentifier)!);
-            return Results.Ok(await service.GetRecentAsync(userId));
+            return Results.Ok(await service.GetRecentAsync(userId, days));
         });
 
         group.MapPost("/", async (ClaimsPrincipal user, CreateMeasurementDto dto, IMeasurementService service) =>

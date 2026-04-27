@@ -19,7 +19,9 @@ public class AuthService : IAuthService
 
     public async Task<User?> GetUserByEmailAsync(string email)
     {
-        return await _db.Users.FirstOrDefaultAsync(u => u.Email == email);
+        return await _db.Users
+            .Include(u => u.Credentials)
+            .FirstOrDefaultAsync(u => u.Email == email);
     }
 
     public async Task<User> CreateUserAsync(string email)
@@ -57,19 +59,25 @@ public class AuthService : IAuthService
 
     public async Task<string> CreateSessionAsync(Guid userId)
     {
+        // Invalidate sessions older than 90 days (ExpiresAt proxy: created 90d ago = expires 60d ago)
+        var staleCutoff = DateTime.UtcNow.AddDays(-(SessionDays + 60));
+        await _db.UserSessions
+            .Where(s => s.UserId == userId && s.ExpiresAt < staleCutoff)
+            .ExecuteDeleteAsync();
+
         var token = GenerateSecureToken();
         var hash = HashToken(token);
-        
+
         var session = new UserSession
         {
             UserId = userId,
             TokenHash = hash,
             ExpiresAt = DateTime.UtcNow.AddDays(SessionDays)
         };
-        
+
         _db.UserSessions.Add(session);
         await _db.SaveChangesAsync();
-        
+
         return token;
     }
 

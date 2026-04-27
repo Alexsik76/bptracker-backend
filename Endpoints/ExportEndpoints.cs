@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
@@ -10,7 +9,6 @@ namespace BpTracker.Api.Endpoints;
 
 public static class ExportEndpoints
 {
-    private static readonly ConcurrentDictionary<Guid, DateTime> _lastExport = new();
     private static readonly TimeSpan ExportCooldown = TimeSpan.FromMinutes(10);
 
     public static void MapExportEndpoints(this IEndpointRouteBuilder app)
@@ -19,7 +17,10 @@ public static class ExportEndpoints
         {
             var userId = Guid.Parse(ctx.User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
-            if (_lastExport.TryGetValue(userId, out var lastTime) && DateTime.UtcNow - lastTime < ExportCooldown)
+            var user = await db.Users.FindAsync(userId);
+            if (user == null) return Results.Unauthorized();
+
+            if (user.LastExportAt.HasValue && DateTime.UtcNow - user.LastExportAt.Value < ExportCooldown)
                 return Results.StatusCode(StatusCodes.Status429TooManyRequests);
 
             var settings = await db.UserSettings.FindAsync(userId);
@@ -48,8 +49,8 @@ public static class ExportEndpoints
                 Status = EmailStatus.Pending,
                 NextAttemptAt = DateTime.UtcNow
             });
+            user.LastExportAt = DateTime.UtcNow;
             await db.SaveChangesAsync();
-            _lastExport[userId] = DateTime.UtcNow;
 
             return Results.Accepted(value: new { message = "Експорт у черзі", email = settings.ExportEmail });
         }).RequireAuthorization();

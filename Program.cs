@@ -3,6 +3,7 @@ using BpTracker.Api.Endpoints;
 using BpTracker.Api.Services;
 using BpTracker.Api.Models;
 using BpTracker.Api.Middleware;
+using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
@@ -75,6 +76,7 @@ builder.Services.Configure<SmtpSettings>(options =>
 builder.Services.AddScoped<SmtpEmailSender>();
 builder.Services.AddScoped<IEmailSender, ResilientEmailSender>();
 builder.Services.AddHostedService<EmailOutboxWorker>();
+builder.Services.AddHostedService<CleanupWorker>();
 
 builder.Services.Configure<GeminiSettings>(options =>
 {
@@ -174,7 +176,45 @@ if (app.Environment.IsDevelopment())
 
 // Configure the HTTP request pipeline.
 
-// CORS must be first to handle OPTIONS preflight before any auth/session middleware
+app.UseExceptionHandler(errorApp =>
+{
+    errorApp.Run(async context =>
+    {
+        var exceptionFeature = context.Features.Get<IExceptionHandlerFeature>();
+        var exception = exceptionFeature?.Error;
+        if (exception is null) return;
+
+        var logger = context.RequestServices.GetRequiredService<ILogger<Program>>();
+        var requestId = context.Response.Headers["X-Request-ID"].FirstOrDefault()
+                        ?? context.TraceIdentifier;
+
+        logger.LogError(exception,
+            "Unhandled exception [{Method} {Path}] request_id={RequestId}",
+            context.Request.Method, context.Request.Path, requestId);
+
+        (int status, string title) = exception switch
+        {
+            DbUpdateConcurrencyException => (409, "Conflict"),
+            DbUpdateException dbEx when IsUniqueConstraintViolation(dbEx) => (409, "Conflict"),
+            DbUpdateException => (500, "Database error"),
+            _ => (500, "An unexpected error occurred")
+        };
+
+        context.Response.StatusCode = status;
+        context.Response.ContentType = "application/problem+json";
+
+        await context.Response.WriteAsJsonAsync(new
+        {
+            type = $"https://httpstatuses.com/{status}",
+            title,
+            status,
+            traceId = requestId,
+            detail = app.Environment.IsProduction() ? null : exception.ToString()
+        });
+    });
+});
+
+// CORS must be before auth/session middleware to handle OPTIONS preflight
 app.UseCors();
 
 app.Use(async (context, next) =>
@@ -255,5 +295,9 @@ using (var scope = app.Services.CreateScope())
 }
 
 app.Run();
+
+static bool IsUniqueConstraintViolation(DbUpdateException ex) =>
+    ex.InnerException?.Message.Contains("23505") == true ||
+    ex.InnerException?.Message.Contains("unique constraint", StringComparison.OrdinalIgnoreCase) == true;
 
 public partial class Program { }

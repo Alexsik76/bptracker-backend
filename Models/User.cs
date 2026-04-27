@@ -11,6 +11,8 @@ public class User
     
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
+    public DateTime? LastExportAt { get; set; }
+
     public ICollection<UserCredential> Credentials { get; set; } = new List<UserCredential>();
     public UserSetting? Settings { get; set; }
     public ICollection<UserSession> Sessions { get; set; } = new List<UserSession>();

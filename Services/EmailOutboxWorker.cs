@@ -47,8 +47,10 @@ public class EmailOutboxWorker : BackgroundService
             .Take(50)
             .ToListAsync(ct);
 
-        if (items.Count > 0)
-            _logger.LogInformation("Processing {Count} outbox emails", items.Count);
+        if (items.Count == 0)
+            return;
+
+        _logger.LogInformation("Processing {Count} outbox emails", items.Count);
 
         foreach (var item in items)
         {
@@ -78,9 +80,10 @@ public class EmailOutboxWorker : BackgroundService
                         item.Id, item.Attempts, item.NextAttemptAt);
                 }
             }
-
-            await db.SaveChangesAsync(ct);
         }
+
+        await db.SaveChangesAsync(ct);
+        _logger.LogInformation("Outbox batch of {Count} items saved", items.Count);
     }
 
     private static List<EmailAttachment> DeserializeAttachments(string? json)
