@@ -21,7 +21,8 @@ REST API для системи відстеження артеріального
 │                       UserCredential, UserSession, MagicLink, EmailOutbox
 ├── Services/           IMeasurementService, ISchemaService, IGeminiService,
 │                       IAuthService, IEmailSender, SmtpEmailSender,
-│                       ResilientEmailSender, EmailOutboxWorker
+│                       ResilientEmailSender, EmailOutboxWorker, CleanupWorker
+├── BpTracker.Api.Tests/ Інтеграційні тести (xUnit + Testcontainers)
 ├── Endpoints/          MeasurementEndpoints, SchemaEndpoints, AnalyzeEndpoints,
 │                       AuthEndpoints, SettingsEndpoints, ExportEndpoints
 ├── Middleware/         SessionMiddleware (читає __Host-session cookie → HttpContext.User)
@@ -46,12 +47,12 @@ REST API для системи відстеження артеріального
 | `POST` | `/api/v1/auth/login/begin` | Ініціює вхід через Passkey |
 | `POST` | `/api/v1/auth/login/complete` | Завершує вхід через Passkey |
 | `POST` | `/api/v1/auth/magic-link/request` | Надсилає magic link на email (rate limit: 3/15хв) |
-| `GET` | `/api/v1/auth/consume?token=` | Споживає magic link → встановлює сесію |
+| `POST` | `/api/v1/auth/magic-link/consume` | Споживає magic link `{token}` → встановлює сесію |
 
 ### Measurements (потребує авторизації)
 | Метод | URL | Опис |
 |---|---|---|
-| `GET` | `/api/v1/measurements` | Всі вимірювання поточного користувача |
+| `GET` | `/api/v1/measurements?days=90` | Вимірювання за N днів (default 90, max 365) |
 | `POST` | `/api/v1/measurements` | Додати вимірювання `{sys, dia, pulse}` |
 | `DELETE` | `/api/v1/measurements/{id}` | Видалити вимірювання |
 | `POST` | `/api/v1/measurements/analyze` | OCR фото тонометра → `{sys, dia, pulse}` (rate limit: 10/хв) |
@@ -96,9 +97,11 @@ REST API для системи відстеження артеріального
 ## Безпека
 
 - **Автентифікація:** HttpOnly `__Host-session` cookie (Secure, SameSite=Lax). Passkeys через `Fido2NetLib`. Magic link — SHA-256 хеш у БД, TTL 15 хв.
+- **Інвалідація сесій:** при кожному логіні видаляються всі сесії цього користувача старіші за 90 днів.
 - **CORS:** дозволено лише origins з `CORS_ORIGINS` + `.AllowCredentials()`
-- **Rate limiting:** `/measurements/analyze` — 10 req/хв per IP; `/magic-link/request` — 3 req/15хв per email
+- **Rate limiting:** `/measurements/analyze` — 10 req/хв per user; `/magic-link/request` — 3 req/15хв per email; `/export/csv` — 1 req/10хв per user (зберігається в БД, стійко до рестартів і реплік)
 - **Ізоляція даних:** всі запити вимірювань фільтруються по `UserId` поточної сесії
+- **Обробка помилок:** глобальний `UseExceptionHandler` → RFC 7807 ProblemDetails (stack trace прихований у Production)
 
 ## Валідація даних
 
@@ -106,6 +109,17 @@ PostgreSQL CHECK constraints + Data Annotations:
 - Систолічний: 40–300
 - Діастолічний: 20–200
 - Пульс: 30–250
+
+## Тести
+
+Інтеграційний набір у `BpTracker.Api.Tests/` (16 тестів). Потребує Docker Desktop (Testcontainers піднімає `postgres:16` автоматично).
+
+```bash
+cd BpTracker.Api.Tests
+dotnet test
+```
+
+Покриває: auth (magic link, session), measurements (CRUD, IDOR), export (outbox, rate limit), health.
 
 ## Локальна розробка
 
