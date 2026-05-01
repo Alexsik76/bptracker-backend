@@ -4,5 +4,5 @@ namespace BpTracker.Api.Services;
 
 public interface IGeminiService
 {
-    Task<ImageAnalysisResultDto> AnalyzeImageAsync(byte[] imageBytes, string mimeType);
+    Task<ImageAnalysisResultDto> AnalyzeImageAsync(byte[] imageBytes, string mimeType, string? customUrl = null);
 }

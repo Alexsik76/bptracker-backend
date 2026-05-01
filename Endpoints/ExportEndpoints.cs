@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
@@ -10,7 +9,6 @@ namespace BpTracker.Api.Endpoints;
 
 public static class ExportEndpoints
 {
-    private static readonly ConcurrentDictionary<Guid, DateTime> _lastExport = new();
     private static readonly TimeSpan ExportCooldown = TimeSpan.FromMinutes(10);
 
     public static void MapExportEndpoints(this IEndpointRouteBuilder app)
@@ -19,7 +17,10 @@ public static class ExportEndpoints
         {
             var userId = Guid.Parse(ctx.User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
-            if (_lastExport.TryGetValue(userId, out var lastTime) && DateTime.UtcNow - lastTime < ExportCooldown)
+            var user = await db.Users.FindAsync(userId);
+            if (user == null) return Results.Unauthorized();
+
+            if (user.LastExportAt.HasValue && DateTime.UtcNow - user.LastExportAt.Value < ExportCooldown)
                 return Results.StatusCode(StatusCodes.Status429TooManyRequests);
 
             var settings = await db.UserSettings.FindAsync(userId);
@@ -48,11 +49,24 @@ public static class ExportEndpoints
                 Status = EmailStatus.Pending,
                 NextAttemptAt = DateTime.UtcNow
             });
+            user.LastExportAt = DateTime.UtcNow;
             await db.SaveChangesAsync();
-            _lastExport[userId] = DateTime.UtcNow;
 
             return Results.Accepted(value: new { message = "Експорт у черзі", email = settings.ExportEmail });
         }).RequireAuthorization();
+    }
+
+    private static readonly TimeZoneInfo _exportTz = ResolveExportTz();
+
+    private static TimeZoneInfo ResolveExportTz()
+    {
+        foreach (var id in new[] { "Europe/Kyiv", "Europe/Kiev", "FLE Standard Time" })
+        {
+            try { return TimeZoneInfo.FindSystemTimeZoneById(id); }
+            catch { }
+        }
+        Console.Error.WriteLine("[ExportEndpoints] WARNING: Kyiv timezone not found — CSV will use UTC. Install tzdata.");
+        return TimeZoneInfo.Utc;
     }
 
     private static string BuildCsv(List<Measurement> measurements)
@@ -60,7 +74,10 @@ public static class ExportEndpoints
         var sb = new StringBuilder();
         sb.AppendLine("timestamp,systolic,diastolic,pulse");
         foreach (var m in measurements)
-            sb.AppendLine(FormattableString.Invariant($"{m.RecordedAt:yyyy-MM-dd HH:mm:ss},{m.Sys},{m.Dia},{m.Pulse}"));
+        {
+            var local = TimeZoneInfo.ConvertTimeFromUtc(m.RecordedAt, _exportTz);
+            sb.AppendLine(FormattableString.Invariant($"{local:yyyy-MM-dd HH:mm:ss},{m.Sys},{m.Dia},{m.Pulse}"));
+        }
         return sb.ToString();
     }
 }

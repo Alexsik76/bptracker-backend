@@ -11,6 +11,7 @@ RUN dotnet publish "BpTracker.Api.csproj" -c Release -o /app/publish /p:UseAppHo
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
 WORKDIR /app
+RUN apt-get update && apt-get install -y --no-install-recommends tzdata && rm -rf /var/lib/apt/lists/*
 COPY --from=publish /app/publish .
 EXPOSE 8080
 ENTRYPOINT ["dotnet", "BpTracker.Api.dll"]

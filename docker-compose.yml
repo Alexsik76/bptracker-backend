@@ -2,10 +2,15 @@ services:
   db:
     image: postgres:16
     container_name: bptracker-db
+    # Workaround for Europe/Kiev vs Europe/Kyiv issue in DBeaver/JDBC
+    command: >
+      sh -c "ln -sf /usr/share/zoneinfo/Europe/Kyiv /usr/share/zoneinfo/Europe/Kiev && exec docker-entrypoint.sh postgres"
     environment:
       POSTGRES_USER: bp_user
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: bp_tracker
+      TZ: Europe/Kyiv
+      PGTZ: Europe/Kyiv
     ports:
       - "5436:5432"
     volumes:
@@ -21,6 +26,7 @@ services:
     container_name: bptracker-api
     restart: unless-stopped
     environment:
+      TZ: Europe/Kyiv
       ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
       ConnectionStrings__DefaultConnection: "Host=db;Database=bp_tracker;Username=bp_user;Password=${POSTGRES_PASSWORD}"
       GEMINI_API_KEY: ${GEMINI_API_KEY}
@@ -31,7 +37,7 @@ services:
       SMTP_PORT: ${SMTP_PORT:-587}
       SMTP_USER: ${SMTP_USER}
       SMTP_PASSWORD: ${SMTP_PASSWORD}
-      SMTP_FROM: ${SMTP_FROM}
+      SMTP_FROM: ${SMTP_FROM} 
       SMTP_FROM_NAME: ${SMTP_FROM_NAME:-BP Tracker}
       SMTP_TLS: ${SMTP_TLS:-true}
       APP_URL: ${APP_URL:-https://bptracker.home.vn.ua}
@@ -48,6 +54,7 @@ services:
     container_name: bptracker-pg-backup
     restart: always
     environment:
+      TZ: Europe/Kyiv
       POSTGRES_HOST: db
       POSTGRES_DB: bp_tracker
       POSTGRES_USER: bp_user
@@ -64,3 +71,4 @@ services:
 
 volumes:
   pgdata:
+  dataprotection-keys:

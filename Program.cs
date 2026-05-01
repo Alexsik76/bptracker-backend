@@ -3,9 +3,11 @@ using BpTracker.Api.Endpoints;
 using BpTracker.Api.Services;
 using BpTracker.Api.Models;
 using BpTracker.Api.Middleware;
+using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using System.Security.Claims;
 using System.Text.Json;
 using Scalar.AspNetCore;
 using System.Threading.RateLimiting;
@@ -86,6 +88,7 @@ builder.Services.Configure<SmtpSettings>(options =>
 builder.Services.AddScoped<SmtpEmailSender>();
 builder.Services.AddScoped<IEmailSender, ResilientEmailSender>();
 builder.Services.AddHostedService<EmailOutboxWorker>();
+builder.Services.AddHostedService<CleanupWorker>();
 
 builder.Services.Configure<GeminiSettings>(options =>
 {
@@ -124,9 +127,28 @@ builder.Services.AddAuthorization();
 
 builder.Services.AddRateLimiter(options =>
 {
+    // Per-user rate limit; falls back to IP if userId is unavailable (should not happen on auth'd endpoint)
     options.AddPolicy("analyze", ctx =>
+    {
+        var userId = ctx.User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (userId is null)
+        {
+            Log.Warning("Rate limit: userId missing on /analyze, falling back to IP");
+            userId = "ip:" + (ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown");
+        }
+        return RateLimitPartition.GetFixedWindowLimiter(userId, _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 10,
+            Window = TimeSpan.FromMinutes(1),
+            QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+            QueueLimit = 0
+        });
+    });
+
+    // Per-IP rate limit for unauthenticated Fido2 challenge endpoints
+    options.AddPolicy("auth-challenge", ctx =>
         RateLimitPartition.GetFixedWindowLimiter(
-            ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            "ip:" + (ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown"),
             _ => new FixedWindowRateLimiterOptions
             {
                 PermitLimit = 10,
@@ -139,7 +161,7 @@ builder.Services.AddRateLimiter(options =>
     {
         ctx.HttpContext.Response.StatusCode = 429;
         await ctx.HttpContext.Response.WriteAsJsonAsync(
-            new { error = "Забагато запитів до AI. Спробуйте за хвилину." }, token);
+            new { error = "Забагато запитів. Спробуйте пізніше." }, token);
     };
 });
 
@@ -172,7 +194,45 @@ if (app.Environment.IsDevelopment())
 
 // Configure the HTTP request pipeline.
 
-// CORS must be first to handle OPTIONS preflight before any auth/session middleware
+app.UseExceptionHandler(errorApp =>
+{
+    errorApp.Run(async context =>
+    {
+        var exceptionFeature = context.Features.Get<IExceptionHandlerFeature>();
+        var exception = exceptionFeature?.Error;
+        if (exception is null) return;
+
+        var logger = context.RequestServices.GetRequiredService<ILogger<Program>>();
+        var requestId = context.Response.Headers["X-Request-ID"].FirstOrDefault()
+                        ?? context.TraceIdentifier;
+
+        logger.LogError(exception,
+            "Unhandled exception [{Method} {Path}] request_id={RequestId}",
+            context.Request.Method, context.Request.Path, requestId);
+
+        (int status, string title) = exception switch
+        {
+            DbUpdateConcurrencyException => (409, "Conflict"),
+            DbUpdateException dbEx when IsUniqueConstraintViolation(dbEx) => (409, "Conflict"),
+            DbUpdateException => (500, "Database error"),
+            _ => (500, "An unexpected error occurred")
+        };
+
+        context.Response.StatusCode = status;
+        context.Response.ContentType = "application/problem+json";
+
+        await context.Response.WriteAsJsonAsync(new
+        {
+            type = $"https://httpstatuses.com/{status}",
+            title,
+            status,
+            traceId = requestId,
+            detail = app.Environment.IsProduction() ? null : exception.ToString()
+        });
+    });
+});
+
+// CORS must be before auth/session middleware to handle OPTIONS preflight
 app.UseCors();
 
 app.Use(async (context, next) =>
@@ -191,10 +251,11 @@ app.UseSerilogRequestLogging();
 // ASP.NET session (used by Fido2 for challenge storage) must come before endpoint handlers
 app.UseSession();
 
-app.UseRateLimiter();
-
 // Custom session middleware: reads __Host-session cookie, sets HttpContext.User
+// Must run before UseRateLimiter so the "analyze" policy can partition by userId
 app.UseMiddleware<SessionMiddleware>();
+
+app.UseRateLimiter();
 
 app.UseAuthentication();
 app.UseAuthorization();
@@ -260,20 +321,8 @@ using (var scope = app.Services.CreateScope())
 
 app.Run();
 
+static bool IsUniqueConstraintViolation(DbUpdateException ex) =>
+    ex.InnerException?.Message.Contains("23505") == true ||
+    ex.InnerException?.Message.Contains("unique constraint", StringComparison.OrdinalIgnoreCase) == true;
+
 public partial class Program { }
-
-public class SessionAuthHandler : AuthenticationHandler<AuthenticationSchemeOptions>
-{
-    public SessionAuthHandler(IOptionsMonitor<AuthenticationSchemeOptions> options, ILoggerFactory logger, UrlEncoder encoder)
-        : base(options, logger, encoder) { }
-
-    protected override Task<AuthenticateResult> HandleAuthenticateAsync()
-    {
-        if (Context.User.Identity?.IsAuthenticated == true)
-        {
-            var ticket = new AuthenticationTicket(Context.User, "Session");
-            return Task.FromResult(AuthenticateResult.Success(ticket));
-        }
-        return Task.FromResult(AuthenticateResult.NoResult());
-    }
-}

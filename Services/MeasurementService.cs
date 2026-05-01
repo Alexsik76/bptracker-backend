@@ -7,12 +7,13 @@ namespace BpTracker.Api.Services;
 
 public class MeasurementService(AppDbContext context) : IMeasurementService
 {
-    public async Task<IEnumerable<MeasurementDto>> GetRecentAsync(Guid userId, int count = 30)
+    public async Task<IEnumerable<MeasurementDto>> GetRecentAsync(Guid userId, int days = 90)
     {
+        var cutoff = DateTime.UtcNow.AddDays(-days);
         return await context.Measurements
-            .Where(m => m.UserId == userId)
+            .Where(m => m.UserId == userId && m.RecordedAt >= cutoff)
             .OrderByDescending(m => m.RecordedAt)
-            .Take(count)
+            .Take(10_000)
             .Select(m => new MeasurementDto(m.Id, m.RecordedAt, m.Sys, m.Dia, m.Pulse))
             .ToListAsync();
     }

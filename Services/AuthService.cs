@@ -19,7 +19,9 @@ public class AuthService : IAuthService
 
     public async Task<User?> GetUserByEmailAsync(string email)
     {
-        return await _db.Users.FirstOrDefaultAsync(u => u.Email == email);
+        return await _db.Users
+            .Include(u => u.Credentials)
+            .FirstOrDefaultAsync(u => u.Email == email);
     }
 
     public async Task<User> CreateUserAsync(string email)
@@ -57,19 +59,25 @@ public class AuthService : IAuthService
 
     public async Task<string> CreateSessionAsync(Guid userId)
     {
+        // Invalidate sessions older than 90 days (ExpiresAt proxy: created 90d ago = expires 60d ago)
+        var staleCutoff = DateTime.UtcNow.AddDays(-(SessionDays + 60));
+        await _db.UserSessions
+            .Where(s => s.UserId == userId && s.ExpiresAt < staleCutoff)
+            .ExecuteDeleteAsync();
+
         var token = GenerateSecureToken();
         var hash = HashToken(token);
-        
+
         var session = new UserSession
         {
             UserId = userId,
             TokenHash = hash,
             ExpiresAt = DateTime.UtcNow.AddDays(SessionDays)
         };
-        
+
         _db.UserSessions.Add(session);
         await _db.SaveChangesAsync();
-        
+
         return token;
     }
 
@@ -94,12 +102,17 @@ public class AuthService : IAuthService
         }
     }
 
-    public async Task<string?> CreateMagicLinkAsync(string email)
+    public async Task<bool> CanRequestMagicLinkAsync(string email)
     {
         var window = DateTime.UtcNow.AddMinutes(-MagicLinkMinutes);
         var recentCount = await _db.MagicLinks
             .CountAsync(l => l.Email == email && l.CreatedAt >= window);
-        if (recentCount >= 3)
+        return recentCount < 3;
+    }
+
+    public async Task<string?> CreateMagicLinkAsync(string email)
+    {
+        if (!await CanRequestMagicLinkAsync(email))
             return null;
 
         var token = GenerateSecureToken();
