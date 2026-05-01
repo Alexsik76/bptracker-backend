@@ -31,10 +31,10 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Remove="BpTracker.Api.Tests\**" />
-    <Content Remove="BpTracker.Api.Tests\**" />
-    <EmbeddedResource Remove="BpTracker.Api.Tests\**" />
-    <None Remove="BpTracker.Api.Tests\**" />
+    <Compile Remove="BpTracker.Api.Tests/**" />
+    <Content Remove="BpTracker.Api.Tests/**" />
+    <EmbeddedResource Remove="BpTracker.Api.Tests/**" />
+    <None Remove="BpTracker.Api.Tests/**" />
   </ItemGroup>
 
 </Project>
