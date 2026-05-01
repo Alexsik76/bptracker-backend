@@ -326,3 +326,19 @@ static bool IsUniqueConstraintViolation(DbUpdateException ex) =>
     ex.InnerException?.Message.Contains("unique constraint", StringComparison.OrdinalIgnoreCase) == true;
 
 public partial class Program { }
+
+public class SessionAuthHandler : AuthenticationHandler<AuthenticationSchemeOptions>
+{
+    public SessionAuthHandler(IOptionsMonitor<AuthenticationSchemeOptions> options, ILoggerFactory logger, UrlEncoder encoder)
+        : base(options, logger, encoder) { }
+
+    protected override Task<AuthenticateResult> HandleAuthenticateAsync()
+    {
+        if (Context.User.Identity?.IsAuthenticated == true)
+        {
+            var ticket = new AuthenticationTicket(Context.User, "Session");
+            return Task.FromResult(AuthenticateResult.Success(ticket));
+        }
+        return Task.FromResult(AuthenticateResult.NoResult());
+    }
+}
