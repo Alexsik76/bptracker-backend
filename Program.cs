@@ -15,6 +15,9 @@ using Serilog;
 using Serilog.Events;
 using Serilog.Formatting.Compact;
 using Fido2NetLib;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.Extensions.Options;
+using System.Text.Encodings.Web;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -32,7 +35,16 @@ builder.Host.UseSerilog();
 // Add services to the container.
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseNpgsql(connectionString));
+{
+    if (builder.Configuration["UseInMemoryDatabase"] == "true")
+    {
+        options.UseInMemoryDatabase("InMemoryDbForTesting");
+    }
+    else
+    {
+        options.UseNpgsql(connectionString);
+    }
+});
 builder.Services.AddHttpClient();
 builder.Services.AddOpenApi();
 
@@ -104,7 +116,13 @@ builder.Services.AddSession(options =>
     options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
 });
 
-builder.Services.AddAuthentication();
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = "Session";
+    options.DefaultChallengeScheme = "Session";
+})
+.AddScheme<AuthenticationSchemeOptions, SessionAuthHandler>("Session", null);
+
 builder.Services.AddAuthorization();
 
 builder.Services.AddRateLimiter(options =>
@@ -281,8 +299,15 @@ using (var scope = app.Services.CreateScope())
     {
         try
         {
-            db.Database.Migrate();
-            logger.LogInformation("Database migrated successfully");
+            if (db.Database.IsNpgsql())
+            {
+                db.Database.Migrate();
+                logger.LogInformation("Database migrated successfully");
+            }
+            else
+            {
+                logger.LogInformation("Skipping migrations for non-Npgsql provider: {Provider}", db.Database.ProviderName);
+            }
             break;
         }
         catch (Exception ex)
