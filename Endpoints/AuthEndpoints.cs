@@ -1,5 +1,7 @@
+using System.Security.Claims;
 using System.Text;
 using BpTracker.Api.DTOs;
+using BpTracker.Api.Extensions;
 using BpTracker.Api.Models;
 using BpTracker.Api.Services;
 using Fido2NetLib;
@@ -17,20 +19,18 @@ public static class AuthEndpoints
     {
         var group = app.MapGroup("/api/v1/auth");
 
-        group.MapGet("/me", async (HttpContext ctx, IAuthService auth) =>
+        group.MapGet("/me", (ClaimsPrincipal user) =>
         {
-            var token = ctx.Request.Cookies["__Host-session"];
-            if (string.IsNullOrEmpty(token)) return Results.Unauthorized();
-
-            var user = await auth.GetUserBySessionTokenAsync(token);
-            return user != null 
-                ? Results.Ok(new { id = user.Id, email = user.Email }) 
-                : Results.Unauthorized();
-        });
+            return Results.Ok(new
+            {
+                id = user.FindFirstValue(ClaimTypes.NameIdentifier),
+                email = user.FindFirstValue(ClaimTypes.Email)
+            });
+        }).RequireAuthorization();
 
         group.MapPost("/logout", async (HttpContext ctx, IAuthService auth) =>
         {
-            var token = ctx.Request.Cookies["__Host-session"];
+            var token = ctx.GetSessionToken();
             if (!string.IsNullOrEmpty(token))
             {
                 await auth.InvalidateSessionAsync(token);

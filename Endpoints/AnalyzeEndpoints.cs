@@ -42,6 +42,6 @@ public static class AnalyzeEndpoints
             {
                 return Results.Json(new { error = ex.Message }, statusCode: 422);
             }
-        }).RequireRateLimiting("analyze");
+        }).RequireAuthorization().RequireRateLimiting("analyze");
     }
 }

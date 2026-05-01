@@ -14,10 +14,10 @@ REST API для системи відстеження артеріального
 
 ```
 ├── Data/               AppDbContext, міграції EF Core
-├── Models/             Measurement, TreatmentSchema, GeminiSettings, GoogleSheetsSettings
+├── Models/             Measurement, TreatmentSchema, GeminiSettings
 ├── DTOs/               MeasurementDto, CreateMeasurementDto, ImageAnalysisResultDto
 ├── Services/           IMeasurementService, ISchemaService, IGeminiService та реалізації
-├── Endpoints/          MeasurementEndpoints, SchemaEndpoints, SyncEndpoint, AnalyzeEndpoints
+├── Endpoints/          MeasurementEndpoints, SchemaEndpoints, AnalyzeEndpoints, SettingsEndpoints, ExportEndpoints
 ├── Program.cs          Startup, DI, CORS, Rate Limiting, автоміграції
 └── Dockerfile          Multi-stage build (sdk → publish → runtime)
 ```
@@ -37,11 +37,6 @@ REST API для системи відстеження артеріального
 |---|---|---|
 | `GET` | `/api/v1/schemas/active` | Активна схема лікування |
 
-### Sync
-| Метод | URL | Опис |
-|---|---|---|
-| `POST` | `/api/v1/sync/google-sheets` | Синхронізація з Google Sheets |
-
 Інтерактивна документація: `https://api-bptracker.home.vn.ua/scalar/v1`
 
 ## Змінні оточення
@@ -51,7 +46,6 @@ REST API для системи відстеження артеріального
 | `ConnectionStrings__DefaultConnection` | Так | — | PostgreSQL connection string |
 | `GEMINI_API_KEY` | Так | — | API ключ Google Gemini |
 | `GEMINI_MODEL` | Ні | `gemini-flash-latest` | Назва моделі Gemini |
-| `GOOGLE_SCRIPT_URL` | Ні | — | URL Google Apps Script для синхронізації |
 | `CORS_ORIGINS` | Ні | `https://bptracker.home.vn.ua` | Дозволені origins через кому |
 
 ## Безпека

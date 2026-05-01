@@ -48,7 +48,10 @@ public class AppDbContext : DbContext
         {
             entity.HasKey(e => e.Id);
             entity.HasIndex(e => new { e.Status, e.NextAttemptAt });
-            entity.Property(e => e.AttachmentsJson).HasColumnType("jsonb");
+            if (Database.IsNpgsql())
+            {
+                entity.Property(e => e.AttachmentsJson).HasColumnType("jsonb");
+            }
         });
 
         modelBuilder.Entity<MagicLink>(entity =>
@@ -64,7 +67,8 @@ public class AppDbContext : DbContext
             entity.HasOne(e => e.User).WithMany(u => u.Measurements).HasForeignKey(e => e.UserId);
 
             entity.ToTable(t =>
-{               t.HasCheckConstraint("CK_Measurement_Sys", "\"Sys\" > 40 AND \"Sys\" < 300");
+            {
+                t.HasCheckConstraint("CK_Measurement_Sys", "\"Sys\" > 40 AND \"Sys\" < 300");
                 t.HasCheckConstraint("CK_Measurement_Dia", "\"Dia\" > 20 AND \"Dia\" < 200");
                 t.HasCheckConstraint("CK_Measurement_Pulse", "\"Pulse\" > 30 AND \"Pulse\" < 250");
             });
@@ -74,7 +78,10 @@ public class AppDbContext : DbContext
         {
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Id).HasMaxLength(50);
-            entity.Property(e => e.ScheduleDocument).HasColumnType("jsonb");
+            if (Database.IsNpgsql())
+            {
+                entity.Property(e => e.ScheduleDocument).HasColumnType("jsonb");
+            }
         });
     }
 }
