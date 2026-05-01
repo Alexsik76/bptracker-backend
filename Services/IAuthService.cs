@@ -16,4 +16,5 @@ public interface IAuthService
     
     Task<string?> CreateMagicLinkAsync(string email);
     Task<string?> ConsumeMagicLinkAsync(string token);
+    Task<bool> CanRequestMagicLinkAsync(string email);
 }

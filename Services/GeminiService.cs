@@ -24,7 +24,7 @@ public class GeminiService : IGeminiService
         _logger = logger;
     }
 
-    public async Task<ImageAnalysisResultDto> AnalyzeImageAsync(byte[] imageBytes, string mimeType)
+    public async Task<ImageAnalysisResultDto> AnalyzeImageAsync(byte[] imageBytes, string mimeType, string? customUrl = null)
     {
         var base64 = Convert.ToBase64String(imageBytes);
 
@@ -48,8 +48,30 @@ public class GeminiService : IGeminiService
             }
         };
 
-        var url = $"https://generativelanguage.googleapis.com/v1beta/models/{_settings.Model}:generateContent?key={_settings.ApiKey}";
-        var response = await _http.PostAsJsonAsync(url, payload);
+        string endpointUrl;
+        bool sendApiKey;
+
+        if (!string.IsNullOrEmpty(customUrl))
+        {
+            // User-configured URL already includes auth (e.g. ?key=... query param)
+            endpointUrl = customUrl;
+            sendApiKey = false;
+        }
+        else if (!string.IsNullOrEmpty(_settings.ApiKey))
+        {
+            endpointUrl = $"https://generativelanguage.googleapis.com/v1beta/models/{_settings.Model}:generateContent";
+            sendApiKey = true;
+        }
+        else
+        {
+            throw new InvalidOperationException("Gemini не налаштований. Вкажіть Gemini API URL у налаштуваннях.");
+        }
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, endpointUrl);
+        if (sendApiKey)
+            request.Headers.Add("x-goog-api-key", _settings.ApiKey);
+        request.Content = JsonContent.Create(payload);
+        var response = await _http.SendAsync(request);
 
         if (!response.IsSuccessStatusCode)
         {
@@ -78,6 +100,13 @@ public class GeminiService : IGeminiService
             .GetProperty("text")
             .GetString() ?? throw new InvalidOperationException("Gemini повернув порожню відповідь");
 
+        // Clean markdown if present
+        text = text.Trim();
+        if (text.StartsWith("```json")) text = text.Substring(7);
+        else if (text.StartsWith("```")) text = text.Substring(3);
+        if (text.EndsWith("```")) text = text.Substring(0, text.Length - 3);
+        text = text.Trim();
+
         using var result = JsonDocument.Parse(text);
         var root = result.RootElement;
 
@@ -94,9 +123,15 @@ public class GeminiService : IGeminiService
 
     private static int GetInt(JsonElement root, string key)
     {
-        var el = root.GetProperty(key);
-        return el.ValueKind == JsonValueKind.Number
-            ? (int)el.GetDouble()
-            : throw new InvalidOperationException($"Не вдалося прочитати поле '{key}'");
+        if (!root.TryGetProperty(key, out var el))
+            throw new InvalidOperationException($"Поле '{key}' відсутнє у відповіді AI");
+
+        if (el.ValueKind == JsonValueKind.Number)
+            return (int)el.GetDouble();
+
+        if (el.ValueKind == JsonValueKind.String && int.TryParse(el.GetString(), out var val))
+            return val;
+
+        throw new InvalidOperationException($"Не вдалося прочитати число з поля '{key}' (тип: {el.ValueKind})");
     }
 }
