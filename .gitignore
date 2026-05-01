@@ -19,3 +19,6 @@ usersecrets.json
 # Docker
 .docker/
 docker-compose.override.yml
+
+# Claude Code
+.claude/settings.local.json
