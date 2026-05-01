@@ -18,12 +18,12 @@
     <PackageReference Include="AspNetCore.HealthChecks.NpgSql" Version="9.0.0" />
     <PackageReference Include="Fido2" Version="4.0.1" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.6" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.15">
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.7">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="9.0.15" />
-    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="9.0.*" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="10.0.7" />
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.0" />
     <PackageReference Include="Scalar.AspNetCore" Version="2.14.0" />
     <PackageReference Include="Serilog.AspNetCore" Version="10.0.0" />
     <PackageReference Include="Serilog.Enrichers.Environment" Version="3.0.1" />
@@ -32,11 +32,5 @@
     <PackageReference Include="MailKit" Version="4.*" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Compile Remove="BpTracker.Api.Tests/**" />
-    <Content Remove="BpTracker.Api.Tests/**" />
-    <EmbeddedResource Remove="BpTracker.Api.Tests/**" />
-    <None Remove="BpTracker.Api.Tests/**" />
-  </ItemGroup>
 
 </Project>
