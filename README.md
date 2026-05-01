@@ -148,7 +148,7 @@ docker-compose up --build -d
 
 API доступне на порту `5000` (внутрішньо `8080`). PostgreSQL на `5436`.
 
-Використувються github webhook з portainer по гілці main
+Використувються github webhook з portainer по гілці main на адресу https://portiner.home.vn.ua
 
 ## Відновлення з бекапу
 
