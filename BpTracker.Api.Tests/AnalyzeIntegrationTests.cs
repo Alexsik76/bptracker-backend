@@ -22,7 +22,7 @@ public class AnalyzeIntegrationTests : IClassFixture<CustomWebApplicationFactory
         });
 
         var content = new MultipartFormDataContent();
-        
+
         // Act
         var response = await client.PostAsync("/api/v1/measurements/analyze", content);
 

@@ -43,9 +43,9 @@ public static class AuthEndpoints
         group.MapPost("/passkey/register/begin", async (PasskeyRegisterBeginDto dto, IFido2 fido2, IAuthService auth, HttpContext ctx) =>
         {
             var user = await auth.GetUserByEmailAsync(dto.Email) ?? await auth.CreateUserAsync(dto.Email);
-            
+
             var existingCredentials = user.Credentials.Select(c => new PublicKeyCredentialDescriptor(c.CredentialId)).ToList();
-            
+
             var fidoUser = new Fido2User
             {
                 DisplayName = user.Email,
@@ -64,7 +64,7 @@ public static class AuthEndpoints
                 },
                 AttestationPreference = AttestationConveyancePreference.None
             });
-            
+
             ctx.Session.SetString(SessionKeyOptions, options.ToJson());
             return Results.Ok(options);
         }).RequireRateLimiting("auth-challenge");
@@ -73,9 +73,9 @@ public static class AuthEndpoints
         {
             var json = ctx.Session.GetString(SessionKeyOptions);
             if (string.IsNullOrEmpty(json)) return Results.BadRequest("Session options not found");
-            
+
             var options = CredentialCreateOptions.FromJson(json);
-            
+
             var success = await fido2.MakeNewCredentialAsync(new MakeNewCredentialParams
             {
                 AttestationResponse = attestationResponse,
@@ -100,7 +100,7 @@ public static class AuthEndpoints
             };
 
             await auth.AddCredentialAsync(user, credential);
-            
+
             await SignInUserAsync(ctx, auth, user.Id);
             return Results.Ok(success);
         });
@@ -121,9 +121,9 @@ public static class AuthEndpoints
         {
             var json = ctx.Session.GetString(SessionKeyOptions);
             if (string.IsNullOrEmpty(json)) return Results.BadRequest("Session options not found");
-            
+
             var options = AssertionOptions.FromJson(json);
-            
+
             var credential = await auth.GetCredentialByIdAsync(clientResponse.RawId);
             if (credential == null) return Results.BadRequest("Unknown credential");
 
@@ -141,7 +141,7 @@ public static class AuthEndpoints
             });
 
             await auth.UpdateCredentialSignCountAsync(credential.CredentialId, success.SignCount);
-            
+
             await SignInUserAsync(ctx, auth, credential.UserId);
             return Results.Ok(success);
         });
@@ -154,7 +154,7 @@ public static class AuthEndpoints
             if (!canRequest) return Results.StatusCode(StatusCodes.Status429TooManyRequests);
 
             var token = await auth.CreateMagicLinkAsync(dto.Email);
-            
+
             var appUrl = config["APP_URL"]?.TrimEnd('/') ?? "https://bptracker.home.vn.ua";
             var consumeUrl = $"{appUrl}/login?token={token}";
 

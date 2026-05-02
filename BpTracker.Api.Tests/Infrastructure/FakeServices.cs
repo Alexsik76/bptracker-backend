@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using BpTracker.Api.DTOs;
+using BpTracker.Api.Models;
 using BpTracker.Api.Services;
 
 namespace BpTracker.Api.Tests.Infrastructure;
@@ -22,6 +23,12 @@ public class FakeEmailSender : IEmailSender
 
 public class FakeGeminiService : IGeminiService
 {
-    public Task<ImageAnalysisResultDto> AnalyzeImageAsync(byte[] imageBytes, string mimeType)
+    public Task<ImageAnalysisResultDto> AnalyzeImageAsync(byte[] imageBytes, string mimeType, string? customUrl = null)
         => Task.FromResult(new ImageAnalysisResultDto(120, 80, 70));
+}
+
+public class FakePhotoApiService : IPhotoApiService
+{
+    public Task UploadAsync(byte[] imageBytes, Measurement measurement, (int Sys, int Dia, int Pulse)? geminiResult)
+        => Task.CompletedTask;
 }

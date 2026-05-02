@@ -43,13 +43,13 @@ public class MeasurementService(AppDbContext context) : IMeasurementService
     {
         var measurement = await context.Measurements
             .FirstOrDefaultAsync(m => m.Id == id && m.UserId == userId);
-            
+
         if (measurement == null)
             return false;
 
         context.Measurements.Remove(measurement);
         await context.SaveChangesAsync();
-        
+
         return true;
     }
 }

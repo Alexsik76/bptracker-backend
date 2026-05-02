@@ -5,10 +5,10 @@ namespace BpTracker.Api.Models;
 public class User
 {
     public Guid Id { get; set; } = Guid.NewGuid();
-    
+
     [Required]
     public string Email { get; set; } = string.Empty;
-    
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     public DateTime? LastExportAt { get; set; }

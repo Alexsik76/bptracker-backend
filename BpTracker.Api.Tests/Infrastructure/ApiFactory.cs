@@ -36,6 +36,10 @@ public class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
             services.RemoveAll<IGeminiService>();
             services.AddSingleton<IGeminiService, FakeGeminiService>();
 
+            // Replace Photo API service with no-op fake
+            services.RemoveAll<IPhotoApiService>();
+            services.AddSingleton<IPhotoApiService, FakePhotoApiService>();
+
             // Remove background outbox worker to prevent interference with status assertions
             var worker = services.FirstOrDefault(d => d.ImplementationType == typeof(EmailOutboxWorker));
             if (worker != null) services.Remove(worker);

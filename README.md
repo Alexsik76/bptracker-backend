@@ -93,6 +93,10 @@ REST API для системи відстеження артеріального
 | `SMTP_FROM` | Ні | — | Адреса відправника |
 | `SMTP_FROM_NAME` | Ні | `BP Tracker` | Ім'я відправника |
 | `SMTP_TLS` | Ні | `true` | StartTLS для порту 587 |
+| `PHOTO_API_ENABLED` | Ні | `false` | Увімкнути збір датасету для ML |
+| `PHOTO_API_URL` | Так* | — | URL сервісу aivm-photo-api (*якщо увімкнено) |
+| `PHOTO_API_TOKEN` | Так* | — | Bearer token для aivm-photo-api (*якщо увімкнено) |
+| `PHOTO_API_DEVICE_MODEL` | Ні | `Paramed Expert-X` | Модель приладу для метаданих |
 
 ## Безпека
 

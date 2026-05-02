@@ -25,13 +25,17 @@ public class IsolationTests : IClassFixture<ApiFactory>
         for (var i = 0; i < 3; i++)
             await clientA.PostJsonAsync("/api/v1/measurements", new
             {
-                sys = TestData.NormalSys, dia = TestData.NormalDia, pulse = TestData.NormalPulse
+                sys = TestData.NormalSys,
+                dia = TestData.NormalDia,
+                pulse = TestData.NormalPulse
             });
 
         for (var i = 0; i < 2; i++)
             await clientB.PostJsonAsync("/api/v1/measurements", new
             {
-                sys = TestData.NormalSys, dia = TestData.NormalDia, pulse = TestData.NormalPulse
+                sys = TestData.NormalSys,
+                dia = TestData.NormalDia,
+                pulse = TestData.NormalPulse
             });
 
         var listA = await (await clientA.GetAsync("/api/v1/measurements"))
@@ -55,7 +59,9 @@ public class IsolationTests : IClassFixture<ApiFactory>
         // User A creates a measurement
         var createRes = await clientA.PostJsonAsync("/api/v1/measurements", new
         {
-            sys = TestData.NormalSys, dia = TestData.NormalDia, pulse = TestData.NormalPulse
+            sys = TestData.NormalSys,
+            dia = TestData.NormalDia,
+            pulse = TestData.NormalPulse
         });
         var created = await createRes.Content.ReadFromJsonAsync<JsonElement>();
         var idOfA = created.GetProperty("id").GetString();

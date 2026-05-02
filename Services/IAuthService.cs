@@ -9,11 +9,11 @@ public interface IAuthService
     Task<UserCredential?> GetCredentialByIdAsync(byte[] credentialId);
     Task AddCredentialAsync(User user, UserCredential credential);
     Task UpdateCredentialSignCountAsync(byte[] credentialId, uint signCount);
-    
+
     Task<string> CreateSessionAsync(Guid userId);
     Task<User?> GetUserBySessionTokenAsync(string token);
     Task InvalidateSessionAsync(string token);
-    
+
     Task<string?> CreateMagicLinkAsync(string email);
     Task<string?> ConsumeMagicLinkAsync(string token);
     Task<bool> CanRequestMagicLinkAsync(string email);

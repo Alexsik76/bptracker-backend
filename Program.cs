@@ -98,6 +98,24 @@ builder.Services.Configure<GeminiSettings>(options =>
 });
 builder.Services.AddHttpClient<IGeminiService, GeminiService>();
 
+builder.Services.Configure<PhotoApiSettings>(options =>
+{
+    options.Enabled = builder.Configuration["PHOTO_API_ENABLED"] == "true";
+    options.Url = builder.Configuration["PHOTO_API_URL"];
+    options.Token = builder.Configuration["PHOTO_API_TOKEN"];
+    options.DeviceModel = builder.Configuration["PHOTO_API_DEVICE_MODEL"] ?? "Paramed Expert-X";
+
+    if (options.Enabled)
+    {
+        if (string.IsNullOrEmpty(options.Url))
+            throw new OptionsValidationException("PhotoApi", typeof(PhotoApiSettings), new[] { "PHOTO_API_URL is required when PHOTO_API_ENABLED is true" });
+        if (string.IsNullOrEmpty(options.Token))
+            throw new OptionsValidationException("PhotoApi", typeof(PhotoApiSettings), new[] { "PHOTO_API_TOKEN is required when PHOTO_API_ENABLED is true" });
+    }
+});
+builder.Services.AddHttpClient("PhotoApi");
+builder.Services.AddSingleton<IPhotoApiService, PhotoApiService>();
+
 builder.Services.AddScoped<IFido2, Fido2>(sp => new Fido2(new Fido2Configuration
 {
     ServerDomain = builder.Configuration["FIDO2_DOMAIN"] ?? "bptracker.home.vn.ua",

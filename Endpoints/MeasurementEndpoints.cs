@@ -26,6 +26,60 @@ public static class MeasurementEndpoints
             return Results.Created($"/api/v1/measurements/{result.Id}", result);
         });
 
+        group.MapPost("/with-photo", async (
+            HttpContext ctx,
+            IMeasurementService service,
+            IPhotoApiService photoApi) =>
+        {
+            if (!ctx.Request.HasFormContentType)
+                return Results.BadRequest(new { error = "Expected multipart/form-data" });
+
+            var form = await ctx.Request.ReadFormAsync();
+
+            if (!int.TryParse(form["sys"], out var sys) ||
+                !int.TryParse(form["dia"], out var dia) ||
+                !int.TryParse(form["pulse"], out var pulse))
+            {
+                return Results.BadRequest(new { error = "Invalid measurement values" });
+            }
+
+            if (sys is < 40 or > 300 || dia is < 20 or > 200 || pulse is < 30 or > 250)
+                return Results.BadRequest(new { error = "Values out of valid range" });
+
+            (int Sys, int Dia, int Pulse)? geminiResult = null;
+            if (int.TryParse(form["geminiSys"], out var gSys) &&
+                int.TryParse(form["geminiDia"], out var gDia) &&
+                int.TryParse(form["geminiPulse"], out var gPulse))
+            {
+                geminiResult = (gSys, gDia, gPulse);
+            }
+
+            var file = form.Files.GetFile("image");
+            if (file is null)
+                return Results.BadRequest(new { error = "Image file is missing" });
+
+            var userId = Guid.Parse(ctx.User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            var dto = new CreateMeasurementDto(sys, dia, pulse);
+            var result = await service.CreateAsync(userId, dto);
+
+            using var ms = new MemoryStream();
+            await file.CopyToAsync(ms);
+            var imageBytes = ms.ToArray();
+
+            // Fire-and-forget: do not await this task
+            _ = photoApi.UploadAsync(imageBytes, new BpTracker.Api.Models.Measurement
+            {
+                Id = result.Id,
+                RecordedAt = result.RecordedAt,
+                Sys = result.Sys,
+                Dia = result.Dia,
+                Pulse = result.Pulse,
+                UserId = userId
+            }, geminiResult);
+
+            return Results.Created($"/api/v1/measurements/{result.Id}", result);
+        }).RequireRateLimiting("analyze");
+
         group.MapDelete("/{id:guid}", async (ClaimsPrincipal user, Guid id, IMeasurementService service) =>
         {
             var userId = Guid.Parse(user.FindFirstValue(ClaimTypes.NameIdentifier)!);

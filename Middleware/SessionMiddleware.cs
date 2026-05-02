@@ -15,7 +15,7 @@ public class SessionMiddleware
     public async Task InvokeAsync(HttpContext context, IAuthService auth)
     {
         var token = context.Request.Cookies["__Host-session"];
-        
+
         if (!string.IsNullOrEmpty(token))
         {
             var user = await auth.GetUserBySessionTokenAsync(token);
@@ -27,7 +27,7 @@ public class SessionMiddleware
                     new Claim(ClaimTypes.Email, user.Email),
                     new Claim("sub", user.Id.ToString())
                 };
-                
+
                 var identity = new ClaimsIdentity(claims, "Session");
                 context.User = new ClaimsPrincipal(identity);
 

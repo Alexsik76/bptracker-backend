@@ -87,7 +87,7 @@ public class AuthService : IAuthService
         var session = await _db.UserSessions
             .Include(s => s.User)
             .FirstOrDefaultAsync(s => s.TokenHash == hash && s.ExpiresAt > DateTime.UtcNow);
-            
+
         return session?.User;
     }
 
@@ -136,13 +136,13 @@ public class AuthService : IAuthService
         var hash = HashToken(token);
         var link = await _db.MagicLinks
             .FirstOrDefaultAsync(l => l.TokenHash == hash && l.ExpiresAt > DateTime.UtcNow);
-            
+
         if (link == null) return null;
-        
+
         var email = link.Email;
         _db.MagicLinks.Remove(link);
         await _db.SaveChangesAsync();
-        
+
         return email;
     }
 
