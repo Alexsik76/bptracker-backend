@@ -211,7 +211,22 @@ docker compose start api
 
 ## Notes for code agents
 
+### Точки входу для агента
+- **Додати ендпоінт:** створити/оновити клас у `Endpoints/`, додати метод розширення та зареєструвати його у `Program.cs`.
+- **Зміна БД:** оновити модель у `Models/`, виконати `dotnet ef migrations add <Name> --project BpTracker.Api.csproj`. Міграції застосовуються автоматично при старті.
+- **Бізнес-логіка:** переважно у `Services/`. Використовуйте DI (Constructor Injection).
+
+### Конвенції найменування
+- **C#:** PascalCase для класів, методів та публічних властивостей. camelCase для приватних полів (з префіксом `_`).
+- **JSON:** camelCase (стандарт System.Text.Json).
+- **Database:** PascalCase для імен таблиць та колонок (стандарт EF Core).
+
+### Відомий технічний борг (Tech Debt)
+- **CSRF:** наразі відсутній спеціальний middleware для CSRF захисту (частково нівелюється `SameSite=Lax` та `Custom Header` вимогами).
+- **Cleanup:** `CleanupWorker` видаляє старі сесії, але наразі немає автоматичного очищення "Dead" листів у `EmailOutbox`.
+- **Files:** фотографії обробляються в пам'яті (`MemoryStream`), що може бути неефективним для дуже великих файлів при високому навантаженні.
+
+### Додатково
 - **Session context:** `HttpContext.User` заповнюється у `Middleware/SessionMiddleware.cs`. Клайм `NameIdentifier` містить `Guid` користувача.
 - **API Versioning:** всі маршрути починаються з `/api/v1/`.
-- **Minimal APIs:** ендпоінти згруповані у папці `Endpoints/` та реєструються через методи розширення в `Program.cs`.
 - **Database:** використовується `Npgsql.EntityFrameworkCore.PostgreSQL`. Поле `ScheduleDocument` у `TreatmentSchema` має тип `JsonDocument` і зберігається як `jsonb`.
