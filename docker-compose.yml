@@ -41,7 +41,6 @@ services:
       SMTP_FROM_NAME: ${SMTP_FROM_NAME:-BP Tracker}
       SMTP_TLS: ${SMTP_TLS:-true}
       APP_URL: ${APP_URL:-https://bptracker.home.vn.ua}
-      APP_URL: ${APP_URL:-https://bptracker.home.vn.ua}
       PHOTO_API_ENABLED: ${PHOTO_API_ENABLED:-false}
       PHOTO_API_URL: ${PHOTO_API_URL}
       PHOTO_API_TOKEN: ${PHOTO_API_TOKEN}
