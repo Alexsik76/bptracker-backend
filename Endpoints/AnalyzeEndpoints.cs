@@ -10,7 +10,7 @@ public static class AnalyzeEndpoints
 
     public static void MapAnalyzeEndpoints(this IEndpointRouteBuilder app)
     {
-        app.MapPost("/api/v1/measurements/analyze", async (HttpContext ctx, IGeminiService gemini, IPhotoApiService photoApi, AppDbContext db) =>
+        app.MapPost("/api/v1/measurements/analyze", async (HttpContext ctx, IGeminiService gemini, IPhotoApiService photoApi, AppDbContext db, ILogger<Program> logger) =>
         {
             if (!ctx.Request.HasFormContentType)
                 return Results.BadRequest(new { error = "Очікується multipart/form-data" });
@@ -39,6 +39,7 @@ public static class AnalyzeEndpoints
             var localResult = await photoApi.RecognizeAsync(imageBytes);
             if (localResult != null)
             {
+                logger.LogInformation("Image analyzed successfully via PhotoAPI for user {UserId}", userId);
                 return Results.Ok(localResult);
             }
 
@@ -46,6 +47,7 @@ public static class AnalyzeEndpoints
             try
             {
                 var result = await gemini.AnalyzeImageAsync(imageBytes, file.ContentType, customUrl);
+                logger.LogInformation("Image analyzed successfully via Gemini fallback for user {UserId}", userId);
                 return Results.Ok(result);
             }
             catch (HttpRequestException ex)
