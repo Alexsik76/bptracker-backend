@@ -46,12 +46,12 @@ public static class MeasurementEndpoints
             if (sys is < 40 or > 300 || dia is < 20 or > 200 || pulse is < 30 or > 250)
                 return Results.BadRequest(new { error = "Values out of valid range" });
 
-            (int Sys, int Dia, int Pulse)? geminiResult = null;
-            if (int.TryParse(form["geminiSys"], out var gSys) &&
-                int.TryParse(form["geminiDia"], out var gDia) &&
-                int.TryParse(form["geminiPulse"], out var gPulse))
+            (int Sys, int Dia, int Pulse)? aiResult = null;
+            if (int.TryParse(form["aiSys"], out var gSys) &&
+                int.TryParse(form["aiDia"], out var gDia) &&
+                int.TryParse(form["aiPulse"], out var gPulse))
             {
-                geminiResult = (gSys, gDia, gPulse);
+                aiResult = (gSys, gDia, gPulse);
             }
 
             var file = form.Files.GetFile("image");
@@ -75,7 +75,7 @@ public static class MeasurementEndpoints
                 Dia = result.Dia,
                 Pulse = result.Pulse,
                 UserId = userId
-            }, geminiResult);
+            }, aiResult);
 
             return Results.Created($"/api/v1/measurements/{result.Id}", result);
         }).RequireRateLimiting("analyze");

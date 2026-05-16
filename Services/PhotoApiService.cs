@@ -71,7 +71,7 @@ public class PhotoApiService : IPhotoApiService
         }
     }
 
-    public async Task UploadAsync(byte[] imageBytes, Measurement measurement, (int Sys, int Dia, int Pulse)? geminiResult)
+    public async Task UploadAsync(byte[] imageBytes, Measurement measurement, (int Sys, int Dia, int Pulse)? aiResult)
     {
         if (!_settings.Enabled) return;
 
@@ -81,10 +81,10 @@ public class PhotoApiService : IPhotoApiService
             client.BaseAddress = new Uri(_settings.Url!);
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _settings.Token);
 
-            var correctedByUser = geminiResult.HasValue && (
-                measurement.Sys != geminiResult.Value.Sys ||
-                measurement.Dia != geminiResult.Value.Dia ||
-                measurement.Pulse != geminiResult.Value.Pulse
+            var correctedByUser = aiResult.HasValue && (
+                measurement.Sys != aiResult.Value.Sys ||
+                measurement.Dia != aiResult.Value.Dia ||
+                measurement.Pulse != aiResult.Value.Pulse
             );
 
             var metadata = new
@@ -96,11 +96,11 @@ public class PhotoApiService : IPhotoApiService
                 device_model = _settings.DeviceModel,
                 source = "user_confirmed",
                 corrected_by_user = correctedByUser,
-                gemini_suggested = geminiResult.HasValue ? new
+                ai_suggested = aiResult.HasValue ? new
                 {
-                    sys = geminiResult.Value.Sys,
-                    dia = geminiResult.Value.Dia,
-                    pul = geminiResult.Value.Pulse
+                    sys = aiResult.Value.Sys,
+                    dia = aiResult.Value.Dia,
+                    pul = aiResult.Value.Pulse
                 } : null,
                 notes = (string?)null,
                 quality_flags = (object?)null

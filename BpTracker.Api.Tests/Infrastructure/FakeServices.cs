@@ -29,7 +29,7 @@ public class FakeGeminiService : IGeminiService
 
 public class FakePhotoApiService : IPhotoApiService
 {
-    public Task UploadAsync(byte[] imageBytes, Measurement measurement, (int Sys, int Dia, int Pulse)? geminiResult)
+    public Task UploadAsync(byte[] imageBytes, Measurement measurement, (int Sys, int Dia, int Pulse)? aiResult)
         => Task.CompletedTask;
 
     public Task<ImageAnalysisResultDto?> RecognizeAsync(byte[] imageBytes)
