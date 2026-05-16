@@ -10,7 +10,7 @@ public static class AnalyzeEndpoints
 
     public static void MapAnalyzeEndpoints(this IEndpointRouteBuilder app)
     {
-        app.MapPost("/api/v1/measurements/analyze", async (HttpContext ctx, IGeminiService gemini, AppDbContext db) =>
+        app.MapPost("/api/v1/measurements/analyze", async (HttpContext ctx, IGeminiService gemini, IPhotoApiService photoApi, AppDbContext db) =>
         {
             if (!ctx.Request.HasFormContentType)
                 return Results.BadRequest(new { error = "Очікується multipart/form-data" });
@@ -33,10 +33,19 @@ public static class AnalyzeEndpoints
 
             using var ms = new MemoryStream();
             await file.CopyToAsync(ms);
+            var imageBytes = ms.ToArray();
 
+            // Спершу пробуємо розпізнати локально через aivm-photo-api
+            var localResult = await photoApi.RecognizeAsync(imageBytes);
+            if (localResult != null)
+            {
+                return Results.Ok(localResult);
+            }
+
+            // Якщо локальне розпізнавання недоступне або завершилось помилкою - фоллбек до Gemini
             try
             {
-                var result = await gemini.AnalyzeImageAsync(ms.ToArray(), file.ContentType, customUrl);
+                var result = await gemini.AnalyzeImageAsync(imageBytes, file.ContentType, customUrl);
                 return Results.Ok(result);
             }
             catch (HttpRequestException ex)

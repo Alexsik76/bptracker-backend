@@ -9,8 +9,8 @@ graph TD
     User((Користувач)) --> Frontend[Vue 3 PWA]
     Frontend <--> Backend[ASP.NET Core 10 API]
     Backend <--> DB[(PostgreSQL 16)]
-    Backend -- OCR --> Gemini[Gemini AI API]
-    Backend -- Fire-and-forget --> PhotoApi[aivm-photo-api]
+    Backend -- OCR (primary) / Fire-and-forget --> PhotoApi[aivm-photo-api]
+    Backend -- OCR (fallback) --> Gemini[Gemini AI API]
     PhotoApi --> NAS[(TrueNAS SMB Share)]
     
     subgraph Background Workers
@@ -96,15 +96,17 @@ graph TD
 ## Зовнішні залежності
 
 ### Gemini AI
-Використовується для розпізнавання (OCR) фотографій тонометра на ендпоінті `/measurements/analyze`.
+Використовується як резервний варіант (fallback) для розпізнавання (OCR) фотографій тонометра на ендпоінті `/measurements/analyze`, якщо локальний `aivm-photo-api` недоступний або вимкнений.
 - **Змінні:** `GEMINI_API_KEY`, `GEMINI_MODEL`.
 - **Ліміти:** 10 запитів на хвилину на користувача.
 
 ### aivm-photo-api
-Сервіс для збору датасету для навчання власних моделей розпізнавання.
-- **Як працює:** При виклику `/measurements/with-photo`, бекенд зберігає замір у себе, а потім асинхронно (через `PhotoApiService`, fire-and-forget) пересилає фото та метадані в цей сервіс.
+Локальний ML-сервіс. Використовується як основний метод для розпізнавання (OCR) фотографій тонометра, а також як сховище для збору датасету.
+- **Як працює:** 
+  - На ендпоінті `/measurements/analyze` відправляє синхронний запит на `/images/recognize` для миттєвого отримання показників.
+  - При виклику `/measurements/with-photo`, бекенд зберігає замір у себе, а потім асинхронно (через `PhotoApiService`, fire-and-forget) пересилає фото та метадані на `/images/upload` в цей сервіс для навчання.
 - **Змінні:** `PHOTO_API_ENABLED`, `PHOTO_API_URL`, `PHOTO_API_TOKEN`, `PHOTO_API_DEVICE_MODEL`.
-- **Стійкість:** Збої `photo-api` логуються, але не блокують збереження заміру для користувача.
+- **Стійкість:** Збої `photo-api` логуються. При відмові розпізнавання використовується Gemini. При відмові завантаження фото в архів — замір все одно зберігається для користувача.
 - **Документація:** [../aivm-photo-api/README.md](../aivm-photo-api/README.md)
 
 ### Frontend
