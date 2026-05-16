@@ -1,4 +1,5 @@
 using System.Net;
+using System.Text;
 using BpTracker.Api.Models;
 using BpTracker.Api.Services;
 using FluentAssertions;
@@ -20,22 +21,32 @@ public class PhotoApiServiceTests
         public HttpRequestMessage? LastRequest { get; private set; }
         public string? LastContent { get; private set; }
         public HttpStatusCode ResponseStatusCode { get; set; } = HttpStatusCode.OK;
+        public string ResponseBody { get; set; } = string.Empty;
 
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             LastRequest = request;
             if (request.Content != null)
+                LastContent = await request.Content.ReadAsStringAsync(cancellationToken);
+
+            return new HttpResponseMessage(ResponseStatusCode)
             {
-                LastContent = await request.Content.ReadAsStringAsync();
-            }
-            return new HttpResponseMessage(ResponseStatusCode);
+                Content = new StringContent(ResponseBody, Encoding.UTF8, "application/json")
+            };
         }
     }
+
+    private class TimeoutMessageHandler : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+            => throw new TaskCanceledException("Simulated timeout");
+    }
+
+    // ── UploadAsync tests ────────────────────────────────────────────────────
 
     [Fact]
     public async Task UploadAsync_WhenEnabled_SendsCorrectMetadata()
     {
-        // Arrange
         var handler = new TestMessageHandler();
         var client = new HttpClient(handler) { BaseAddress = new Uri("http://api") };
         var factory = new TestHttpClientFactory(client);
@@ -59,13 +70,10 @@ public class PhotoApiServiceTests
         };
         var aiResult = (125, 85, 75);
 
-        // Act
         await service.UploadAsync([1, 2, 3], measurement, aiResult);
 
-        // Assert
         handler.LastRequest.Should().NotBeNull();
         handler.LastRequest!.Headers.Authorization!.Parameter.Should().Be("secret");
-
         handler.LastContent.Should().Contain("\"corrected_by_user\":true");
         handler.LastContent.Should().Contain("\"device_model\":\"Test-Device\"");
         handler.LastContent.Should().Contain("\"ai_suggested\":{\"sys\":125,\"dia\":85,\"pul\":75}");
@@ -75,7 +83,6 @@ public class PhotoApiServiceTests
     [Fact]
     public async Task UploadAsync_WhenNotCorrected_SetsFlagToFalse()
     {
-        // Arrange
         var handler = new TestMessageHandler();
         var client = new HttpClient(handler) { BaseAddress = new Uri("http://api") };
         var factory = new TestHttpClientFactory(client);
@@ -85,44 +92,107 @@ public class PhotoApiServiceTests
         var measurement = new Measurement { Sys = 120, Dia = 80, Pulse = 70 };
         var aiResult = (120, 80, 70);
 
-        // Act
         await service.UploadAsync([1], measurement, aiResult);
 
-        // Assert
         handler.LastContent.Should().Contain("\"corrected_by_user\":false");
     }
 
     [Fact]
     public async Task UploadAsync_WhenDisabled_DoesNotSendRequest()
     {
-        // Arrange
         var handler = new TestMessageHandler();
         var client = new HttpClient(handler) { BaseAddress = new Uri("http://api") };
         var factory = new TestHttpClientFactory(client);
         var settings = new PhotoApiSettings { Enabled = false };
         var service = new PhotoApiService(factory, Options.Create(settings), NullLogger<PhotoApiService>.Instance);
 
-        // Act
         await service.UploadAsync([1], new Measurement(), null);
 
-        // Assert
         handler.LastRequest.Should().BeNull();
     }
 
     [Fact]
     public async Task UploadAsync_WhenApiReturnsError_DoesNotThrow()
     {
-        // Arrange
         var handler = new TestMessageHandler { ResponseStatusCode = HttpStatusCode.InternalServerError };
         var client = new HttpClient(handler) { BaseAddress = new Uri("http://api") };
         var factory = new TestHttpClientFactory(client);
         var settings = new PhotoApiSettings { Enabled = true, Url = "http://api", Token = "s" };
         var service = new PhotoApiService(factory, Options.Create(settings), NullLogger<PhotoApiService>.Instance);
 
-        // Act
         var act = () => service.UploadAsync([1], new Measurement(), null);
 
-        // Assert
         await act.Should().NotThrowAsync();
+    }
+
+    // ── RecognizeAsync tests ─────────────────────────────────────────────────
+
+    [Fact]
+    public async Task RecognizeAsync_ReturnsResult_WhenApiResponds200()
+    {
+        var handler = new TestMessageHandler
+        {
+            ResponseBody = """{"sys":125,"dia":82,"pul":68,"confidence":0.92,"elapsed_ms":50}"""
+        };
+        var client = new HttpClient(handler) { BaseAddress = new Uri("http://api") };
+        var factory = new TestHttpClientFactory(client);
+        var settings = new PhotoApiSettings { Enabled = true, Url = "http://api", Token = "s" };
+        var service = new PhotoApiService(factory, Options.Create(settings), NullLogger<PhotoApiService>.Instance);
+
+        var result = await service.RecognizeAsync([1, 2, 3]);
+
+        result.Should().NotBeNull();
+        result!.Sys.Should().Be(125);
+        result.Dia.Should().Be(82);
+        result.Pulse.Should().Be(68);
+        result.Source.Should().Be("local");
+        result.Confidence.Should().BeApproximately(0.92, 0.001);
+    }
+
+    [Fact]
+    public async Task RecognizeAsync_ReturnsNull_WhenApiReturns422()
+    {
+        var handler = new TestMessageHandler
+        {
+            ResponseStatusCode = HttpStatusCode.UnprocessableEntity,
+            ResponseBody = """{"detail":"got 2 rows, need 3"}"""
+        };
+        var client = new HttpClient(handler) { BaseAddress = new Uri("http://api") };
+        var factory = new TestHttpClientFactory(client);
+        var settings = new PhotoApiSettings { Enabled = true, Url = "http://api", Token = "s" };
+        var service = new PhotoApiService(factory, Options.Create(settings), NullLogger<PhotoApiService>.Instance);
+
+        var result = await service.RecognizeAsync([1, 2, 3]);
+
+        result.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task RecognizeAsync_ReturnsNull_WhenApiTimesOut()
+    {
+        var handler = new TimeoutMessageHandler();
+        var client = new HttpClient(handler) { BaseAddress = new Uri("http://api") };
+        var factory = new TestHttpClientFactory(client);
+        var settings = new PhotoApiSettings { Enabled = true, Url = "http://api", Token = "s" };
+        var service = new PhotoApiService(factory, Options.Create(settings), NullLogger<PhotoApiService>.Instance);
+
+        var result = await service.RecognizeAsync([1, 2, 3]);
+
+        result.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task RecognizeAsync_ReturnsNull_WhenEnabledIsFalse()
+    {
+        var handler = new TestMessageHandler();
+        var client = new HttpClient(handler) { BaseAddress = new Uri("http://api") };
+        var factory = new TestHttpClientFactory(client);
+        var settings = new PhotoApiSettings { Enabled = false };
+        var service = new PhotoApiService(factory, Options.Create(settings), NullLogger<PhotoApiService>.Instance);
+
+        var result = await service.RecognizeAsync([1, 2, 3]);
+
+        result.Should().BeNull();
+        handler.LastRequest.Should().BeNull();
     }
 }

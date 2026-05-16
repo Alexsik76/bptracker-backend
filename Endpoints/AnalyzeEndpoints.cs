@@ -1,6 +1,8 @@
 using System.Security.Claims;
 using BpTracker.Api.Data;
+using BpTracker.Api.Models;
 using BpTracker.Api.Services;
+using Microsoft.Extensions.Options;
 
 namespace BpTracker.Api.Endpoints;
 
@@ -10,7 +12,7 @@ public static class AnalyzeEndpoints
 
     public static void MapAnalyzeEndpoints(this IEndpointRouteBuilder app)
     {
-        app.MapPost("/api/v1/measurements/analyze", async (HttpContext ctx, IGeminiService gemini, IPhotoApiService photoApi, AppDbContext db, ILogger<Program> logger) =>
+        app.MapPost("/api/v1/measurements/analyze", async (HttpContext ctx, IGeminiService gemini, IPhotoApiService photoApi, IOptions<PhotoApiSettings> photoApiOptions, AppDbContext db, ILogger<Program> logger) =>
         {
             if (!ctx.Request.HasFormContentType)
                 return Results.BadRequest(new { error = "Очікується multipart/form-data" });
@@ -44,6 +46,9 @@ public static class AnalyzeEndpoints
             }
 
             // Якщо локальне розпізнавання недоступне або завершилось помилкою - фоллбек до Gemini
+            if (photoApiOptions.Value.Enabled)
+                logger.LogWarning("Local recognition unavailable or failed, falling back to Gemini");
+
             try
             {
                 var result = await gemini.AnalyzeImageAsync(imageBytes, file.ContentType, customUrl);

@@ -49,6 +49,7 @@ builder.Services.AddHttpClient();
 builder.Services.AddOpenApi();
 
 var geminiHealthClient = new HttpClient { Timeout = TimeSpan.FromSeconds(2) };
+var photoApiHealthClient = new HttpClient { Timeout = TimeSpan.FromSeconds(2) };
 
 builder.Services.AddHealthChecks()
     .AddNpgSql(connectionString!)
@@ -68,6 +69,27 @@ builder.Services.AddHealthChecks()
         catch
         {
             return HealthCheckResult.Unhealthy("Gemini API is unreachable");
+        }
+    })
+    .AddAsyncCheck("photo-api", async () =>
+    {
+        var enabled = builder.Configuration["PHOTO_API_ENABLED"] == "true";
+        if (!enabled) return HealthCheckResult.Healthy("aivm-photo-api is disabled");
+
+        var url = builder.Configuration["PHOTO_API_URL"];
+        if (string.IsNullOrEmpty(url))
+            return HealthCheckResult.Degraded("PHOTO_API_URL is not configured");
+
+        try
+        {
+            var response = await photoApiHealthClient.GetAsync($"{url.TrimEnd('/')}/health");
+            return response.IsSuccessStatusCode
+                ? HealthCheckResult.Healthy()
+                : HealthCheckResult.Degraded("aivm-photo-api health check failed");
+        }
+        catch
+        {
+            return HealthCheckResult.Degraded("aivm-photo-api is unreachable");
         }
     });
 
@@ -113,7 +135,7 @@ builder.Services.Configure<PhotoApiSettings>(options =>
             throw new OptionsValidationException("PhotoApi", typeof(PhotoApiSettings), new[] { "PHOTO_API_TOKEN is required when PHOTO_API_ENABLED is true" });
     }
 });
-builder.Services.AddHttpClient("PhotoApi");
+builder.Services.AddHttpClient("PhotoApi", c => c.Timeout = TimeSpan.FromSeconds(5));
 builder.Services.AddSingleton<IPhotoApiService, PhotoApiService>();
 
 builder.Services.AddScoped<IFido2, Fido2>(sp => new Fido2(new Fido2Configuration

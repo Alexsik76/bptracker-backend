@@ -23,15 +23,29 @@ public class FakeEmailSender : IEmailSender
 
 public class FakeGeminiService : IGeminiService
 {
+    public Exception? ExceptionToThrow { get; set; }
+
     public Task<ImageAnalysisResultDto> AnalyzeImageAsync(byte[] imageBytes, string mimeType, string? customUrl = null)
-        => Task.FromResult(new ImageAnalysisResultDto(120, 80, 70));
+    {
+        if (ExceptionToThrow is not null)
+            throw ExceptionToThrow;
+        return Task.FromResult(new ImageAnalysisResultDto(120, 80, 70, "gemini", null));
+    }
 }
+
+public enum PhotoApiBehavior { Success, Failed }
 
 public class FakePhotoApiService : IPhotoApiService
 {
+    public PhotoApiBehavior Behavior { get; set; } = PhotoApiBehavior.Failed;
+
     public Task UploadAsync(byte[] imageBytes, Measurement measurement, (int Sys, int Dia, int Pulse)? aiResult)
         => Task.CompletedTask;
 
     public Task<ImageAnalysisResultDto?> RecognizeAsync(byte[] imageBytes)
-        => Task.FromResult<ImageAnalysisResultDto?>(null);
+    {
+        if (Behavior == PhotoApiBehavior.Success)
+            return Task.FromResult<ImageAnalysisResultDto?>(new ImageAnalysisResultDto(125, 82, 68, "local", 0.92));
+        return Task.FromResult<ImageAnalysisResultDto?>(null);
+    }
 }

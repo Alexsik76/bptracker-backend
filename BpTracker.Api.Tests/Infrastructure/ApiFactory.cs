@@ -16,6 +16,8 @@ public class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
     private readonly PostgreSqlContainer _db = new PostgreSqlBuilder("postgres:16").Build();
 
     public FakeEmailSender EmailSender { get; } = new();
+    public FakeGeminiService GeminiService { get; } = new();
+    public FakePhotoApiService PhotoApiService { get; } = new();
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -32,13 +34,13 @@ public class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
             services.RemoveAll<IEmailSender>();
             services.AddSingleton<IEmailSender>(EmailSender);
 
-            // Replace Gemini service with deterministic fake
+            // Replace Gemini service with configurable fake
             services.RemoveAll<IGeminiService>();
-            services.AddSingleton<IGeminiService, FakeGeminiService>();
+            services.AddSingleton<IGeminiService>(GeminiService);
 
-            // Replace Photo API service with no-op fake
+            // Replace Photo API service with configurable fake
             services.RemoveAll<IPhotoApiService>();
-            services.AddSingleton<IPhotoApiService, FakePhotoApiService>();
+            services.AddSingleton<IPhotoApiService>(PhotoApiService);
 
             // Remove background outbox worker to prevent interference with status assertions
             var worker = services.FirstOrDefault(d => d.ImplementationType == typeof(EmailOutboxWorker));
