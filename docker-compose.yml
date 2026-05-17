@@ -59,6 +59,7 @@ services:
     container_name: bptracker-seq
     environment:
       ACCEPT_EULA: "Y"
+      SEQ_FIRSTRUN_NOAUTHENTICATION: "true"
     volumes:
       - seq-data:/data
     ports:
