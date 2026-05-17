@@ -117,7 +117,7 @@ public static class MeasurementEndpoints
             _ = photoApi.UploadAsync(ms.ToArray(), new BpTracker.Api.Models.Measurement
             {
                 Id = id,
-                RecordedAt = recordedAt,
+                RecordedAt = recordedAt.UtcDateTime,
                 Sys = sys,
                 Dia = dia,
                 Pulse = pul,
