@@ -37,7 +37,7 @@ public class AnalyzeIntegrationTests(ApiFactory factory) : IClassFixture<ApiFact
 
             response.StatusCode.Should().Be(HttpStatusCode.OK);
             var body = await response.Content.ReadFromJsonAsync<JsonElement>();
-            body.GetProperty("source").GetString().Should().Be("local");
+            body.GetProperty("source").GetString().Should().Be("local_ocr");
             body.GetProperty("sys").GetInt32().Should().Be(125);
         }
         finally

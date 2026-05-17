@@ -22,11 +22,13 @@ using System.Text.Encodings.Web;
 var builder = WebApplication.CreateBuilder(args);
 
 Log.Logger = new LoggerConfiguration()
-    .MinimumLevel.Override("Microsoft", LogEventLevel.Information)
+    .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
     .Enrich.FromLogContext()
     .Enrich.WithThreadId()
     .Enrich.WithEnvironmentName()
     .Enrich.WithMachineName()
+    .MinimumLevel.Override("Microsoft.EntityFrameworkCore.Database.Command", LogEventLevel.Warning)
+    .MinimumLevel.Override("Microsoft.AspNetCore", LogEventLevel.Warning)
     .WriteTo.Console(new CompactJsonFormatter())
     .WriteTo.Seq(builder.Configuration["SEQ_URL"] ?? "http://seq:80")
     .CreateLogger();

@@ -70,12 +70,13 @@ public class PhotoApiServiceTests
         };
         var aiResult = (125, 85, 75);
 
-        await service.UploadAsync([1, 2, 3], measurement, aiResult);
+        await service.UploadAsync([1, 2, 3], measurement, aiResult, "local");
 
         handler.LastRequest.Should().NotBeNull();
         handler.LastRequest!.Headers.Authorization!.Parameter.Should().Be("secret");
         handler.LastContent.Should().Contain("\"corrected_by_user\":true");
         handler.LastContent.Should().Contain("\"device_model\":\"Test-Device\"");
+        handler.LastContent.Should().Contain("\"source\":\"local\"");
         handler.LastContent.Should().Contain("\"ai_suggested\":{\"sys\":125,\"dia\":85,\"pul\":75}");
         handler.LastContent.Should().Contain(recordedAt.ToString("O"));
     }
@@ -92,7 +93,7 @@ public class PhotoApiServiceTests
         var measurement = new Measurement { Sys = 120, Dia = 80, Pulse = 70 };
         var aiResult = (120, 80, 70);
 
-        await service.UploadAsync([1], measurement, aiResult);
+        await service.UploadAsync([1], measurement, aiResult, "local");
 
         handler.LastContent.Should().Contain("\"corrected_by_user\":false");
     }
@@ -106,7 +107,7 @@ public class PhotoApiServiceTests
         var settings = new PhotoApiSettings { Enabled = false };
         var service = new PhotoApiService(factory, Options.Create(settings), NullLogger<PhotoApiService>.Instance);
 
-        await service.UploadAsync([1], new Measurement(), null);
+        await service.UploadAsync([1], new Measurement(), null, null);
 
         handler.LastRequest.Should().BeNull();
     }
@@ -120,7 +121,7 @@ public class PhotoApiServiceTests
         var settings = new PhotoApiSettings { Enabled = true, Url = "http://api", Token = "s" };
         var service = new PhotoApiService(factory, Options.Create(settings), NullLogger<PhotoApiService>.Instance);
 
-        var act = () => service.UploadAsync([1], new Measurement(), null);
+        var act = () => service.UploadAsync([1], new Measurement(), null, null);
 
         await act.Should().NotThrowAsync();
     }
@@ -145,7 +146,7 @@ public class PhotoApiServiceTests
         result!.Sys.Should().Be(125);
         result.Dia.Should().Be(82);
         result.Pulse.Should().Be(68);
-        result.Source.Should().Be("local");
+        result.Source.Should().Be("local_ocr");
         result.Confidence.Should().BeApproximately(0.92, 0.001);
     }
 
