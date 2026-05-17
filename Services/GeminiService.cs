@@ -118,7 +118,7 @@ public class GeminiService : IGeminiService
         if (dia is < 20 or > 200) throw new InvalidOperationException($"Діастолічний тиск {dia} поза допустимим діапазоном (20–200)");
         if (pulse is < 30 or > 250) throw new InvalidOperationException($"Пульс {pulse} поза допустимим діапазоном (30–250)");
 
-        return new ImageAnalysisResultDto(sys, dia, pulse, "gemini", null);
+        return new ImageAnalysisResultDto(sys, dia, pulse, "gemini_auto", null);
     }
 
     private static int GetInt(JsonElement root, string key)

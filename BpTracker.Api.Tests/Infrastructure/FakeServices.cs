@@ -45,7 +45,7 @@ public class FakePhotoApiService : IPhotoApiService
     public Task<ImageAnalysisResultDto?> RecognizeAsync(byte[] imageBytes)
     {
         if (Behavior == PhotoApiBehavior.Success)
-            return Task.FromResult<ImageAnalysisResultDto?>(new ImageAnalysisResultDto(125, 82, 68, "local", 0.92));
+            return Task.FromResult<ImageAnalysisResultDto?>(new ImageAnalysisResultDto(125, 82, 68, "local_ocr", 0.92));
         return Task.FromResult<ImageAnalysisResultDto?>(null);
     }
 }

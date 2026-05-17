@@ -59,7 +59,7 @@ public class PhotoApiService : IPhotoApiService
                 var dia = diaEl.GetInt32();
                 var pul = pulEl.GetInt32();
                 var confidence = root.TryGetProperty("confidence", out var confEl) ? confEl.GetDouble() : (double?)null;
-                return new ImageAnalysisResultDto(sys, dia, pul, "local", confidence);
+                return new ImageAnalysisResultDto(sys, dia, pul, "local_ocr", confidence);
             }
             
             _logger.LogWarning("Photo API recognize response invalid format: {Json}", json);
