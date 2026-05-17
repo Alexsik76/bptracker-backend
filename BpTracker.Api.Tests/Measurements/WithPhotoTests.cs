@@ -22,9 +22,9 @@ public class WithPhotoTests(ApiFactory factory) : IClassFixture<ApiFactory>
         content.Add(new StringContent("120"), "sys");
         content.Add(new StringContent("80"), "dia");
         content.Add(new StringContent("70"), "pulse");
-        content.Add(new StringContent("125"), "aiSys");
-        content.Add(new StringContent("85"), "aiDia");
-        content.Add(new StringContent("75"), "aiPulse");
+        content.Add(new StringContent("125"), "geminiSys");
+        content.Add(new StringContent("85"), "geminiDia");
+        content.Add(new StringContent("75"), "geminiPulse");
 
         var fileContent = new ByteArrayContent([1, 2, 3, 4, 5]);
         fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("image/jpeg");

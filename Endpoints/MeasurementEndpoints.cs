@@ -47,9 +47,9 @@ public static class MeasurementEndpoints
                 return Results.BadRequest(new { error = "Values out of valid range" });
 
             (int Sys, int Dia, int Pulse)? aiResult = null;
-            if (int.TryParse(form["aiSys"], out var gSys) &&
-                int.TryParse(form["aiDia"], out var gDia) &&
-                int.TryParse(form["aiPulse"], out var gPulse))
+            if (int.TryParse(form["geminiSys"], out var gSys) &&
+                int.TryParse(form["geminiDia"], out var gDia) &&
+                int.TryParse(form["geminiPulse"], out var gPulse))
             {
                 aiResult = (gSys, gDia, gPulse);
             }
@@ -61,6 +61,8 @@ public static class MeasurementEndpoints
             var userId = Guid.Parse(ctx.User.FindFirstValue(ClaimTypes.NameIdentifier)!);
             var dto = new CreateMeasurementDto(sys, dia, pulse);
             var result = await service.CreateAsync(userId, dto);
+
+            var sourceEngine = form["sourceEngine"].ToString();
 
             using var ms = new MemoryStream();
             await file.CopyToAsync(ms);
@@ -75,7 +77,7 @@ public static class MeasurementEndpoints
                 Dia = result.Dia,
                 Pulse = result.Pulse,
                 UserId = userId
-            }, aiResult);
+            }, aiResult, sourceEngine);
 
             return Results.Created($"/api/v1/measurements/{result.Id}", result);
         }).RequireRateLimiting("analyze");

@@ -72,7 +72,7 @@ public class PhotoApiService : IPhotoApiService
         }
     }
 
-    public async Task UploadAsync(byte[] imageBytes, Measurement measurement, (int Sys, int Dia, int Pulse)? aiResult)
+    public async Task UploadAsync(byte[] imageBytes, Measurement measurement, (int Sys, int Dia, int Pulse)? aiResult, string? sourceEngine)
     {
         if (!_settings.Enabled) return;
 
@@ -95,7 +95,7 @@ public class PhotoApiService : IPhotoApiService
                 pul = measurement.Pulse,
                 timestamp = measurement.RecordedAt.ToString("O"), // ISO 8601 with TZ
                 device_model = _settings.DeviceModel,
-                source = "user_confirmed",
+                source = sourceEngine ?? "user_confirmed",
                 corrected_by_user = correctedByUser,
                 ai_suggested = aiResult.HasValue ? new
                 {

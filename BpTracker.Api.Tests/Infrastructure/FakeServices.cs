@@ -39,7 +39,7 @@ public class FakePhotoApiService : IPhotoApiService
 {
     public PhotoApiBehavior Behavior { get; set; } = PhotoApiBehavior.Failed;
 
-    public Task UploadAsync(byte[] imageBytes, Measurement measurement, (int Sys, int Dia, int Pulse)? aiResult)
+    public Task UploadAsync(byte[] imageBytes, Measurement measurement, (int Sys, int Dia, int Pulse)? aiResult, string? sourceEngine)
         => Task.CompletedTask;
 
     public Task<ImageAnalysisResultDto?> RecognizeAsync(byte[] imageBytes)

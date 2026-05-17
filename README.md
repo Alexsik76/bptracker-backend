@@ -83,7 +83,7 @@ graph TD
 |---|---|---|
 | `GET` | `/api/v1/measurements?days=90` | Вимірювання за N днів (default 90, max 365) |
 | `POST` | `/api/v1/measurements` | Додати вимірювання `{sys, dia, pulse}` (JSON) |
-| `POST` | `/api/v1/measurements/with-photo` | Додати замір з фото (`multipart/form-data`). Поля: `image`, `sys`, `dia`, `pulse`, `aiSys`, `aiDia`, `aiPulse`. Зберігає в БД та асинхронно шле в photo-api. |
+| `POST` | `/api/v1/measurements/with-photo` | Додати замір з фото (`multipart/form-data`). Поля: `image`, `sys`, `dia`, `pulse`, `geminiSys`, `geminiDia`, `geminiPulse`, `sourceEngine`. Зберігає в БД та асинхронно шле в photo-api. |
 | `DELETE` | `/api/v1/measurements/{id}` | Видалити вимірювання |
 | `POST` | `/api/v1/measurements/analyze` | OCR фото тонометра → `{sys, dia, pulse}` (rate limit: 10/хв) |
 
