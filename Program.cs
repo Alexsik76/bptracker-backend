@@ -28,6 +28,7 @@ Log.Logger = new LoggerConfiguration()
     .Enrich.WithEnvironmentName()
     .Enrich.WithMachineName()
     .WriteTo.Console(new CompactJsonFormatter())
+    .WriteTo.Seq(builder.Configuration["SEQ_URL"] ?? "http://seq:80")
     .CreateLogger();
 
 builder.Host.UseSerilog();

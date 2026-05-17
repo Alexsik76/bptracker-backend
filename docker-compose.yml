@@ -37,7 +37,7 @@ services:
       SMTP_PORT: ${SMTP_PORT:-587}
       SMTP_USER: ${SMTP_USER}
       SMTP_PASSWORD: ${SMTP_PASSWORD}
-      SMTP_FROM: ${SMTP_FROM} 
+      SMTP_FROM: ${SMTP_FROM}
       SMTP_FROM_NAME: ${SMTP_FROM_NAME:-BP Tracker}
       SMTP_TLS: ${SMTP_TLS:-true}
       APP_URL: ${APP_URL:-https://bptracker.home.vn.ua}
@@ -45,6 +45,7 @@ services:
       PHOTO_API_URL: ${PHOTO_API_URL}
       PHOTO_API_TOKEN: ${PHOTO_API_TOKEN}
       PHOTO_API_DEVICE_MODEL: ${PHOTO_API_DEVICE_MODEL:-Paramed Expert-X}
+      SEQ_URL: http://seq:80
     volumes:
       - dataprotection-keys:/root/.aspnet/DataProtection-Keys
     ports:
@@ -52,27 +53,19 @@ services:
     depends_on:
       db:
         condition: service_healthy
-
-  pg-backup:
-    image: prodrigestivill/postgres-backup-local
-    container_name: bptracker-pg-backup
-    restart: always
+  
+  seq:
+    image: datalust/seq:latest
+    container_name: bptracker-seq
     environment:
-      TZ: Europe/Kyiv
-      POSTGRES_HOST: db
-      POSTGRES_DB: bp_tracker
-      POSTGRES_USER: bp_user
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      SCHEDULE: "0 3 * * *"
-      BACKUP_KEEP_DAYS: 7
-      BACKUP_KEEP_WEEKS: 4
-      BACKUP_KEEP_MONTHS: 3
+      ACCEPT_EULA: "Y"
     volumes:
-      - ./backups:/backups
-    depends_on:
-      db:
-        condition: service_healthy
+      - seq-data:/data
+    ports:
+      - "5341:80"
+    restart: unless-stopped
 
 volumes:
   pgdata:
   dataprotection-keys:
+  seq-data:

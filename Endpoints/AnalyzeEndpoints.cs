@@ -42,6 +42,8 @@ public static class AnalyzeEndpoints
             if (localResult != null)
             {
                 logger.LogInformation("Image analyzed successfully via PhotoAPI for user {UserId}", userId);
+                // TODO: diagnostic only — remove or downgrade to Debug once shadow mode validates the source/confidence fields
+                logger.LogInformation("Analyze response: {@Result}", localResult);
                 return Results.Ok(localResult);
             }
 
@@ -53,6 +55,8 @@ public static class AnalyzeEndpoints
             {
                 var result = await gemini.AnalyzeImageAsync(imageBytes, file.ContentType, customUrl);
                 logger.LogInformation("Image analyzed successfully via Gemini fallback for user {UserId}", userId);
+                // TODO: diagnostic only — remove or downgrade to Debug once shadow mode validates the source/confidence fields
+                logger.LogInformation("Analyze response: {@Result}", result);
                 return Results.Ok(result);
             }
             catch (HttpRequestException ex)

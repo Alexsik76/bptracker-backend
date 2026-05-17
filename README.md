@@ -30,6 +30,18 @@ graph TD
 - **Docker + Docker Compose** — розгортання
 - **Gemini AI** — OCR знімків тонометра
 
+## Логи
+
+Структуровані JSON-логи через Serilog. Перегляд — через Seq на http://bptracker.home.vn.ua:5341.
+
+В Seq доступні фільтри по полях: `RequestPath`, `user_id`, `request_id`, `SourceContext`,
+а також по будь-якому полю обʼєктів, що логуються з `{@...}` синтаксисом.
+
+Корисні запити:
+- `RequestPath = '/api/v1/measurements/analyze'` — всі OCR-запити
+- `@Level = 'Warning'` — попередження (наприклад, fallback на Gemini)
+- `Result.Source = 'gemini'` — запити, що пішли через Gemini fallback
+
 ## Структура проекту
 
 ```
