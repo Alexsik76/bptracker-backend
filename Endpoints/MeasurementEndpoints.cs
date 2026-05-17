@@ -82,6 +82,51 @@ public static class MeasurementEndpoints
             return Results.Created($"/api/v1/measurements/{result.Id}", result);
         }).RequireRateLimiting("analyze");
 
+        group.MapPost("/{id:guid}/photo", async (
+            HttpContext ctx,
+            Guid id,
+            IPhotoApiService photoApi) =>
+        {
+            if (!ctx.Request.HasFormContentType)
+                return Results.BadRequest(new { error = "Expected multipart/form-data" });
+
+            var form = await ctx.Request.ReadFormAsync();
+            var file = form.Files.GetFile("image");
+            if (file is null) return Results.BadRequest(new { error = "Image file is missing" });
+
+            if (!int.TryParse(form["sys"], out var sys) ||
+                !int.TryParse(form["dia"], out var dia) ||
+                !int.TryParse(form["pul"], out var pul))
+                return Results.BadRequest(new { error = "Invalid measurement values" });
+
+            (int Sys, int Dia, int Pulse)? aiResult = null;
+            if (int.TryParse(form["aiSys"], out var aiSys) &&
+                int.TryParse(form["aiDia"], out var aiDia) &&
+                int.TryParse(form["aiPul"], out var aiPul))
+                aiResult = (aiSys, aiDia, aiPul);
+
+            var source = form["source"].ToString();
+            var userId = Guid.Parse(ctx.User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            var recordedAt = DateTimeOffset.TryParse(form["recordedAt"], out var ts)
+                ? ts
+                : DateTimeOffset.UtcNow;
+
+            using var ms = new MemoryStream();
+            await file.CopyToAsync(ms);
+
+            _ = photoApi.UploadAsync(ms.ToArray(), new BpTracker.Api.Models.Measurement
+            {
+                Id = id,
+                RecordedAt = recordedAt,
+                Sys = sys,
+                Dia = dia,
+                Pulse = pul,
+                UserId = userId,
+            }, aiResult, source);
+
+            return Results.Accepted();
+        }).RequireRateLimiting("analyze");
+
         group.MapDelete("/{id:guid}", async (ClaimsPrincipal user, Guid id, IMeasurementService service) =>
         {
             var userId = Guid.Parse(user.FindFirstValue(ClaimTypes.NameIdentifier)!);

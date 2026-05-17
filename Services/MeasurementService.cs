@@ -25,7 +25,8 @@ public class MeasurementService(AppDbContext context) : IMeasurementService
             UserId = userId,
             Sys = dto.Sys,
             Dia = dto.Dia,
-            Pulse = dto.Pulse
+            Pulse = dto.Pulse,
+            RecordedAt = dto.RecordedAt ?? DateTime.UtcNow
         };
 
         context.Measurements.Add(measurement);
