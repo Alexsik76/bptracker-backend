@@ -74,10 +74,12 @@ public class PhotoApiServiceTests
 
         handler.LastRequest.Should().NotBeNull();
         handler.LastRequest!.Headers.Authorization!.Parameter.Should().Be("secret");
-        handler.LastContent.Should().Contain("\"corrected_by_user\":true");
-        handler.LastContent.Should().Contain("\"device_model\":\"Test-Device\"");
-        handler.LastContent.Should().Contain("\"source\":\"local\"");
-        handler.LastContent.Should().Contain("\"ai_suggested\":{\"sys\":125,\"dia\":85,\"pul\":75}");
+        handler.LastContent.Should().Contain("name=corrected_by_user\r\n\r\ntrue");
+        handler.LastContent.Should().Contain("name=device_model\r\n\r\nTest-Device");
+        handler.LastContent.Should().Contain("name=source\r\n\r\nlocal");
+        handler.LastContent.Should().Contain("name=ai_suggested_sys\r\n\r\n125");
+        handler.LastContent.Should().Contain("name=ai_suggested_dia\r\n\r\n85");
+        handler.LastContent.Should().Contain("name=ai_suggested_pul\r\n\r\n75");
         handler.LastContent.Should().Contain(recordedAt.ToString("O"));
     }
 
@@ -95,7 +97,7 @@ public class PhotoApiServiceTests
 
         await service.UploadAsync([1], measurement, aiResult, "local");
 
-        handler.LastContent.Should().Contain("\"corrected_by_user\":false");
+        handler.LastContent.Should().Contain("name=corrected_by_user\r\n\r\nfalse");
     }
 
     [Fact]

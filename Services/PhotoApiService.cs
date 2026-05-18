@@ -1,5 +1,4 @@
 using System.Net.Http.Headers;
-using System.Text;
 using System.Text.Json;
 using BpTracker.Api.DTOs;
 using BpTracker.Api.Models;
@@ -88,33 +87,26 @@ public class PhotoApiService : IPhotoApiService
                 measurement.Pulse != aiResult.Value.Pulse
             );
 
-            var metadata = new
-            {
-                sys = measurement.Sys,
-                dia = measurement.Dia,
-                pul = measurement.Pulse,
-                timestamp = measurement.RecordedAt.ToString("O"), // ISO 8601 with TZ
-                device_model = _settings.DeviceModel,
-                source = sourceEngine ?? "user_confirmed",
-                corrected_by_user = correctedByUser,
-                ai_suggested = aiResult.HasValue ? new
-                {
-                    sys = aiResult.Value.Sys,
-                    dia = aiResult.Value.Dia,
-                    pul = aiResult.Value.Pulse
-                } : null,
-                notes = (string?)null,
-                quality_flags = (object?)null
-            };
-
             using var content = new MultipartFormDataContent();
 
             var imageContent = new ByteArrayContent(imageBytes);
             imageContent.Headers.ContentType = MediaTypeHeaderValue.Parse("image/jpeg");
             content.Add(imageContent, "file", $"measurement_{measurement.Id}.jpg");
 
-            var metadataJson = JsonSerializer.Serialize(metadata);
-            content.Add(new StringContent(metadataJson, Encoding.UTF8, "application/json"), "metadata");
+            content.Add(new StringContent(measurement.Sys.ToString()), "sys");
+            content.Add(new StringContent(measurement.Dia.ToString()), "dia");
+            content.Add(new StringContent(measurement.Pulse.ToString()), "pul");
+            content.Add(new StringContent(measurement.RecordedAt.ToString("O")), "timestamp");
+            content.Add(new StringContent(sourceEngine ?? "user_confirmed"), "source");
+            content.Add(new StringContent(correctedByUser ? "true" : "false"), "corrected_by_user");
+            if (_settings.DeviceModel is not null)
+                content.Add(new StringContent(_settings.DeviceModel), "device_model");
+            if (aiResult.HasValue)
+            {
+                content.Add(new StringContent(aiResult.Value.Sys.ToString()), "ai_suggested_sys");
+                content.Add(new StringContent(aiResult.Value.Dia.ToString()), "ai_suggested_dia");
+                content.Add(new StringContent(aiResult.Value.Pulse.ToString()), "ai_suggested_pul");
+            }
 
             var response = await client.PostAsync("/images/upload", content);
 

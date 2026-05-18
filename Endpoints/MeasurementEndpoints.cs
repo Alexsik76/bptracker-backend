@@ -100,14 +100,14 @@ public static class MeasurementEndpoints
                 return Results.BadRequest(new { error = "Invalid measurement values" });
 
             (int Sys, int Dia, int Pulse)? aiResult = null;
-            if (int.TryParse(form["aiSys"], out var aiSys) &&
-                int.TryParse(form["aiDia"], out var aiDia) &&
-                int.TryParse(form["aiPul"], out var aiPul))
+            if (int.TryParse(form["ai_suggested_sys"], out var aiSys) &&
+                int.TryParse(form["ai_suggested_dia"], out var aiDia) &&
+                int.TryParse(form["ai_suggested_pul"], out var aiPul))
                 aiResult = (aiSys, aiDia, aiPul);
 
             var source = form["source"].ToString();
             var userId = Guid.Parse(ctx.User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-            var recordedAt = DateTimeOffset.TryParse(form["recordedAt"], out var ts)
+            var recordedAt = DateTimeOffset.TryParse(form["timestamp"], out var ts)
                 ? ts
                 : DateTimeOffset.UtcNow;
 
