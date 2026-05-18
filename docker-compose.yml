@@ -23,7 +23,6 @@ services:
 
   api:
     build: .
-    image: bptracker-api:local
     container_name: bptracker-api
     restart: unless-stopped
     environment:
