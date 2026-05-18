@@ -35,6 +35,7 @@ public class AppDbContext : DbContext
         {
             entity.HasKey(e => e.UserId);
             entity.HasOne(e => e.User).WithOne(u => u.Settings).HasForeignKey<UserSetting>(e => e.UserId);
+            entity.Property(e => e.SendPhotos).HasDefaultValue(true);
         });
 
         modelBuilder.Entity<UserSession>(entity =>

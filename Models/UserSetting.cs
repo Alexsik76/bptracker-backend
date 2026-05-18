@@ -11,4 +11,5 @@ public class UserSetting
     public string? GeminiUrl { get; set; }
     public string? ExportEmail { get; set; }
     public string? SheetsTemplateUrl { get; set; }
+    public bool SendPhotos { get; set; } = true;
 }

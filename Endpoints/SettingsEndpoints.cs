@@ -41,6 +41,8 @@ public static class SettingsEndpoints
                     return Results.BadRequest(new { error = "SheetsTemplateUrl має бути валідним абсолютним URL" });
                 settings.SheetsTemplateUrl = dto.SheetsTemplateUrl.Length == 0 ? null : dto.SheetsTemplateUrl;
             }
+            if (dto.SendPhotos is not null)
+                settings.SendPhotos = dto.SendPhotos.Value;
 
             await db.SaveChangesAsync();
             return Results.Ok(ToDto(settings));
@@ -56,5 +58,5 @@ public static class SettingsEndpoints
     }
 
     private static SettingsDto ToDto(UserSetting s) =>
-        new(s.GeminiUrl, s.ExportEmail, s.SheetsTemplateUrl);
+        new(s.GeminiUrl, s.ExportEmail, s.SheetsTemplateUrl, s.SendPhotos);
 }

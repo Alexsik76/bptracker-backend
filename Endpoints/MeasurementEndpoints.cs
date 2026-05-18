@@ -106,6 +106,7 @@ public static class MeasurementEndpoints
                 aiResult = (aiSys, aiDia, aiPul);
 
             var source = form["source"].ToString();
+            var ocrMeta = form["ocr_meta"].ToString();
             var userId = Guid.Parse(ctx.User.FindFirstValue(ClaimTypes.NameIdentifier)!);
             var recordedAt = DateTimeOffset.TryParse(form["timestamp"], out var ts)
                 ? ts
@@ -122,7 +123,7 @@ public static class MeasurementEndpoints
                 Dia = dia,
                 Pulse = pul,
                 UserId = userId,
-            }, aiResult, source);
+            }, aiResult, source, string.IsNullOrEmpty(ocrMeta) ? null : ocrMeta);
 
             return Results.Accepted();
         }).RequireRateLimiting("analyze");

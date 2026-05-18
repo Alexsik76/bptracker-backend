@@ -71,7 +71,7 @@ public class PhotoApiService : IPhotoApiService
         }
     }
 
-    public async Task UploadAsync(byte[] imageBytes, Measurement measurement, (int Sys, int Dia, int Pulse)? aiResult, string? sourceEngine)
+    public async Task UploadAsync(byte[] imageBytes, Measurement measurement, (int Sys, int Dia, int Pulse)? aiResult, string? sourceEngine, string? ocrMeta = null)
     {
         if (!_settings.Enabled) return;
 
@@ -107,6 +107,8 @@ public class PhotoApiService : IPhotoApiService
                 content.Add(new StringContent(aiResult.Value.Dia.ToString()), "ai_suggested_dia");
                 content.Add(new StringContent(aiResult.Value.Pulse.ToString()), "ai_suggested_pul");
             }
+            if (ocrMeta is not null)
+                content.Add(new StringContent(ocrMeta), "ocr_meta");
 
             var response = await client.PostAsync("/images/upload", content);
 
