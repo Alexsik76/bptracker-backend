@@ -2,6 +2,7 @@ services:
   db:
     image: postgres:16
     container_name: bptracker-db
+    restart: unless-stopped
     # Workaround for Europe/Kiev vs Europe/Kyiv issue in DBeaver/JDBC
     command: >
       sh -c "ln -sf /usr/share/zoneinfo/Europe/Kyiv /usr/share/zoneinfo/Europe/Kiev && exec docker-entrypoint.sh postgres"

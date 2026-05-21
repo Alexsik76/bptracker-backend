@@ -235,7 +235,10 @@ dotnet ef migrations add <Name> --project BpTracker.Api.csproj
 
 ## Docker розгортання
 
-Розгортання автоматизовано через Portainer GitOps Webhook для гілки `main`.
+Розгортання — вручну на сервері командами нижче.
+
+> Раніше деплой був автоматизований через Portainer GitOps Webhook на гілку `main`.
+> Webhook вимкнено — авто-деплой спрацьовував надто неявно; тепер розгортання свідоме й ручне.
 
 ```bash
 cp .env.example .env
