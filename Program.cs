@@ -21,6 +21,15 @@ using System.Text.Encodings.Web;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+   {
+       options.ForwardedHeaders =
+           Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedFor |
+           Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedProto;
+       options.KnownNetworks.Clear();
+       options.KnownProxies.Clear();
+   });
+
 Log.Logger = new LoggerConfiguration()
     .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
     .Enrich.FromLogContext()
@@ -236,6 +245,7 @@ if (app.Environment.IsDevelopment())
 }
 
 // Configure the HTTP request pipeline.
+app.UseForwardedHeaders();
 
 app.UseExceptionHandler(errorApp =>
 {
