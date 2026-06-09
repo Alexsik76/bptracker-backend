@@ -78,7 +78,7 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<TreatmentSchema>(entity =>
         {
             entity.HasKey(e => e.Id);
-            entity.Property(e => e.Id).HasMaxLength(50);
+            entity.Property(e => e.CreatedAt).HasDefaultValueSql("now()");
             if (Database.IsNpgsql())
             {
                 entity.Property(e => e.ScheduleDocument).HasColumnType("jsonb");

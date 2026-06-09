@@ -18,6 +18,9 @@ public static partial class HttpClientExtensions
     public static Task<HttpResponseMessage> PatchJsonAsync<T>(this HttpClient client, string url, T body)
         => client.PatchAsync(url, JsonContent.Create(body));
 
+    public static Task<HttpResponseMessage> PutJsonAsync<T>(this HttpClient client, string url, T body)
+        => client.PutAsync(url, JsonContent.Create(body));
+
     /// <summary>Extracts the raw session token value from a Set-Cookie response header.</summary>
     public static string? ExtractSessionToken(this HttpResponseMessage response)
     {
