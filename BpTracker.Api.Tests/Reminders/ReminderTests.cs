@@ -12,6 +12,7 @@ using BpTracker.Api.Tests.Infrastructure;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Xunit;
 
 namespace BpTracker.Api.Tests.Reminders;
@@ -242,5 +243,47 @@ public class ReminderTests : IClassFixture<ApiFactory>
         decision = ReminderWorker.EvaluatePeriod(windowPassed, tz, template, "Morning", config, null);
         decision.Action.Should().Be(ReminderActionType.RecordMissed);
         decision.MissedReportTime.Should().Be(now.AddMinutes(12));
+    }
+
+    [Fact]
+    public async Task Worker_ProcessTick_SendsPushWithPayload()
+    {
+        var (user, token) = await TestUser.CreateAsync(_factory);
+        var client = _factory.CreateClient().AuthAs(token);
+
+        var subscribeDto = new PushSubscribeDto(
+            "https://updates.push.services.mozilla.com/wpush/v2/gAAAAA",
+            new PushSubscriptionKeysDto("p256dh-key", "auth-secret")
+        );
+        var subRes = await client.PostJsonAsync("/api/v1/push/subscribe", subscribeDto);
+        subRes.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var schemaId = await CreateSchemaAsync(client);
+        var createDto = CreateTemplateBody(schemaId, isActive: true);
+        var templateRes = await client.PostJsonAsync("/api/v1/reminders/template", createDto);
+        var template = (await templateRes.Content.ReadFromJsonAsync<ReminderTemplate>())!;
+
+        using var scope = _factory.Services.CreateScope();
+        var logger = scope.ServiceProvider.GetRequiredService<ILogger<ReminderWorker>>();
+        var worker = new ReminderWorker(scope.ServiceProvider.GetRequiredService<IServiceScopeFactory>(), logger);
+
+        var tz = TimeZoneInfo.FindSystemTimeZoneById("Europe/Kiev");
+        var nowLocal = new DateTime(2026, 6, 10, 8, 0, 0, DateTimeKind.Unspecified);
+        var now = new DateTimeOffset(nowLocal, tz.GetUtcOffset(nowLocal));
+
+        _factory.WebPushClient.Sent.Clear();
+
+        await worker.ProcessTickAsync(now, default);
+
+        _factory.WebPushClient.Sent.Should().HaveCount(1);
+        var (subscription, message) = _factory.WebPushClient.Sent[0];
+
+        subscription.Endpoint.Should().Be("https://updates.push.services.mozilla.com/wpush/v2/gAAAAA");
+        
+        var payload = JsonSerializer.Deserialize<JsonElement>(message.Content);
+        payload.GetProperty("title").GetString().Should().Be("BP Tracker Reminder");
+        payload.GetProperty("period").GetString().Should().Be("Morning");
+        payload.GetProperty("date").GetString().Should().Be("2026-06-10");
+        payload.GetProperty("templateId").GetString().Should().Be(template.Id.ToString());
     }
 }

@@ -118,7 +118,14 @@ public class ReminderWorker : BackgroundService
 
                 foreach (var userId in users)
                 {
-                    await pushService.SendToUserAsync(userId, title, body);
+                    await pushService.SendToUserAsync(
+                        userId,
+                        title,
+                        body,
+                        period: periodName,
+                        date: todayLocal.ToString("yyyy-MM-dd"),
+                        templateId: activeTemplate.Id.ToString()
+                    );
                 }
             }
             else if (decision.Action == ReminderActionType.RecordMissed)

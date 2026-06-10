@@ -67,7 +67,13 @@ public class PushService : IPushService
         }
     }
 
-    public async Task<(int sent, int failed)> SendToUserAsync(Guid userId, string title, string body)
+    public async Task<(int sent, int failed)> SendToUserAsync(
+        Guid userId,
+        string title,
+        string body,
+        string? period = null,
+        string? date = null,
+        string? templateId = null)
     {
         if (!_pushClient.IsPushEnabled)
         {
@@ -83,7 +89,14 @@ public class PushService : IPushService
             return (0, 0);
         }
 
-        var payloadObj = new { title, body };
+        var payloadObj = new
+        {
+            title,
+            body,
+            period,
+            date,
+            templateId
+        };
         var payloadJson = JsonSerializer.Serialize(payloadObj);
 
         int sent = 0;
