@@ -18,6 +18,7 @@ using Fido2NetLib;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.Extensions.Options;
 using System.Text.Encodings.Web;
+using Lib.Net.Http.WebPush;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -108,6 +109,25 @@ builder.Services.AddHealthChecks()
 builder.Services.AddScoped<IMeasurementService, MeasurementService>();
 builder.Services.AddScoped<ISchemaService, SchemaService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IPushService, PushService>();
+
+var vapidPublicKey = builder.Configuration["VAPID_PUBLIC_KEY"];
+var vapidPrivateKey = builder.Configuration["VAPID_PRIVATE_KEY"];
+var vapidSubject = builder.Configuration["VAPID_SUBJECT"];
+
+if (string.IsNullOrEmpty(vapidPublicKey) || string.IsNullOrEmpty(vapidPrivateKey) || string.IsNullOrEmpty(vapidSubject))
+{
+    Log.Warning("VAPID configuration is incomplete. Web push sending will be disabled.");
+    builder.Services.AddSingleton<IWebPushClient, DisabledWebPushClient>();
+}
+else
+{
+    builder.Services.AddSingleton(new Lib.Net.Http.WebPush.Authentication.VapidAuthentication(vapidPublicKey, vapidPrivateKey)
+    {
+        Subject = vapidSubject
+    });
+    builder.Services.AddHttpClient<IWebPushClient, WebPushClient>();
+}
 
 builder.Services.Configure<AuthSettings>(options =>
 {
@@ -356,6 +376,7 @@ app.MapAnalyzeEndpoints();
 app.MapAuthEndpoints();
 app.MapSettingsEndpoints();
 app.MapExportEndpoints();
+app.MapPushEndpoints();
 
 // Apply migrations on startup with retry (waits for DB container to be ready)
 using (var scope = app.Services.CreateScope())

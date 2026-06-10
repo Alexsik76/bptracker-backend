@@ -9,6 +9,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Testcontainers.PostgreSql;
 using Xunit;
 using Fido2NetLib;
+using Microsoft.Extensions.Configuration;
 
 namespace BpTracker.Api.Tests.Infrastructure;
 
@@ -20,15 +21,30 @@ public class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
     public FakeGeminiService GeminiService { get; } = new();
     public FakePhotoApiService PhotoApiService { get; } = new();
     public FakeFido2 Fido2 { get; } = new();
+    public FakeWebPushClient WebPushClient { get; } = new();
     public HashSet<string>? AllowedEmails { get; set; } = null;
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
+        builder.ConfigureAppConfiguration((context, config) =>
+        {
+            config.AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["VAPID_PUBLIC_KEY"] = "test-vapid-public-key",
+                ["VAPID_PRIVATE_KEY"] = "test-vapid-private-key",
+                ["VAPID_SUBJECT"] = "mailto:test@example.com"
+            });
+        });
+
         builder.ConfigureTestServices(services =>
         {
             // Replace Fido2 with fake
             services.RemoveAll<IFido2>();
             services.AddSingleton<IFido2>(Fido2);
+
+            // Replace WebPush client with fake
+            services.RemoveAll<IWebPushClient>();
+            services.AddSingleton<IWebPushClient>(WebPushClient);
 
             // Replace AuthSettings options dynamically
             services.RemoveAll<Microsoft.Extensions.Options.IOptions<BpTracker.Api.Models.AuthSettings>>();
