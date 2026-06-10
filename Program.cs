@@ -110,6 +110,7 @@ builder.Services.AddScoped<IMeasurementService, MeasurementService>();
 builder.Services.AddScoped<ISchemaService, SchemaService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IPushService, PushService>();
+builder.Services.AddScoped<IReminderService, ReminderService>();
 
 var vapidPublicKey = builder.Configuration["VAPID_PUBLIC_KEY"];
 var vapidPrivateKey = builder.Configuration["VAPID_PRIVATE_KEY"];
@@ -160,6 +161,7 @@ else
     builder.Services.AddScoped<IEmailSender, ResilientEmailSender>();
 builder.Services.AddHostedService<EmailOutboxWorker>();
 builder.Services.AddHostedService<CleanupWorker>();
+builder.Services.AddHostedService<ReminderWorker>();
 
 builder.Services.Configure<GeminiSettings>(options =>
 {
@@ -377,6 +379,7 @@ app.MapAuthEndpoints();
 app.MapSettingsEndpoints();
 app.MapExportEndpoints();
 app.MapPushEndpoints();
+app.MapReminderEndpoints();
 
 // Apply migrations on startup with retry (waits for DB container to be ready)
 using (var scope = app.Services.CreateScope())

@@ -46,6 +46,18 @@ public class SchemaService(AppDbContext context) : ISchemaService
         {
             await using var tx = await context.Database.BeginTransactionAsync();
 
+            var activeSchemaIds = await context.TreatmentSchemas
+                .Where(s => s.IsActive)
+                .Select(s => s.Id)
+                .ToListAsync();
+
+            if (activeSchemaIds.Count > 0)
+            {
+                await context.ReminderTemplates
+                    .Where(t => activeSchemaIds.Contains(t.SchemaId))
+                    .ExecuteUpdateAsync(t => t.SetProperty(e => e.IsActive, false));
+            }
+
             await context.TreatmentSchemas
                 .Where(s => s.IsActive)
                 .ExecuteUpdateAsync(s => s.SetProperty(e => e.IsActive, false));
@@ -84,6 +96,18 @@ public class SchemaService(AppDbContext context) : ISchemaService
             return false;
 
         await using var tx = await context.Database.BeginTransactionAsync();
+
+        var activeSchemaIds = await context.TreatmentSchemas
+            .Where(s => s.IsActive)
+            .Select(s => s.Id)
+            .ToListAsync();
+
+        if (activeSchemaIds.Count > 0)
+        {
+            await context.ReminderTemplates
+                .Where(t => activeSchemaIds.Contains(t.SchemaId))
+                .ExecuteUpdateAsync(t => t.SetProperty(e => e.IsActive, false));
+        }
 
         await context.TreatmentSchemas
             .Where(s => s.IsActive)

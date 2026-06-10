@@ -16,6 +16,8 @@ public class AppDbContext : DbContext
     public DbSet<EmailOutbox> EmailOutbox => Set<EmailOutbox>();
     public DbSet<MagicLink> MagicLinks => Set<MagicLink>();
     public DbSet<PushSubscription> PushSubscriptions => Set<PushSubscription>();
+    public DbSet<ReminderTemplate> ReminderTemplates => Set<ReminderTemplate>();
+    public DbSet<IntakeReport> IntakeReports => Set<IntakeReport>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -70,6 +72,30 @@ public class AppDbContext : DbContext
                   .WithMany()
                   .HasForeignKey(e => e.UserId)
                   .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<ReminderTemplate>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            if (Database.IsNpgsql())
+            {
+                entity.Property(e => e.Periods).HasColumnType("jsonb");
+            }
+            entity.HasOne(e => e.Schema)
+                  .WithMany()
+                  .HasForeignKey(e => e.SchemaId)
+                  .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<IntakeReport>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Status).HasConversion<string>();
+            entity.HasIndex(e => new { e.TemplateId, e.Period, e.Date }).IsUnique();
+            entity.HasOne(e => e.Template)
+                  .WithMany()
+                  .HasForeignKey(e => e.TemplateId)
+                  .OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<Measurement>(entity =>

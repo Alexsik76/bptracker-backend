@@ -75,6 +75,9 @@ public class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
             // Remove background outbox worker to prevent interference with status assertions
             var worker = services.FirstOrDefault(d => d.ImplementationType == typeof(EmailOutboxWorker));
             if (worker != null) services.Remove(worker);
+
+            var reminderWorker = services.FirstOrDefault(d => d.ImplementationType == typeof(ReminderWorker));
+            if (reminderWorker != null) services.Remove(reminderWorker);
         });
 
         builder.UseEnvironment("Testing");
