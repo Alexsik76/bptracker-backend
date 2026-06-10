@@ -8,6 +8,7 @@ using Fido2NetLib;
 using Fido2NetLib.Objects;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Options;
 
 namespace BpTracker.Api.Endpoints;
 
@@ -40,9 +41,13 @@ public static class AuthEndpoints
         });
 
         // Passkey Registration
-        group.MapPost("/passkey/register/begin", async (PasskeyRegisterBeginDto dto, IFido2 fido2, IAuthService auth, HttpContext ctx) =>
+        group.MapPost("/passkey/register/begin", async (PasskeyRegisterBeginDto? dto, IFido2 fido2, IAuthService auth, HttpContext ctx) =>
         {
-            var user = await auth.GetUserByEmailAsync(dto.Email) ?? await auth.CreateUserAsync(dto.Email);
+            var userId = ctx.GetUserId();
+            if (userId == null) return Results.Unauthorized();
+
+            var user = await auth.GetUserByIdAsync(userId.Value);
+            if (user == null) return Results.Unauthorized();
 
             var existingCredentials = user.Credentials.Select(c => new PublicKeyCredentialDescriptor(c.CredentialId)).ToList();
 
@@ -67,10 +72,16 @@ public static class AuthEndpoints
 
             ctx.Session.SetString(SessionKeyOptions, options.ToJson());
             return Results.Ok(options);
-        }).RequireRateLimiting("auth-challenge");
+        }).RequireRateLimiting("auth-challenge").RequireAuthorization();
 
         group.MapPost("/passkey/register/complete", async ([FromBody] AuthenticatorAttestationRawResponse attestationResponse, IFido2 fido2, IAuthService auth, HttpContext ctx) =>
         {
+            var userId = ctx.GetUserId();
+            if (userId == null) return Results.Unauthorized();
+
+            var user = await auth.GetUserByIdAsync(userId.Value);
+            if (user == null) return Results.Unauthorized();
+
             var json = ctx.Session.GetString(SessionKeyOptions);
             if (string.IsNullOrEmpty(json)) return Results.BadRequest("Session options not found");
 
@@ -87,9 +98,6 @@ public static class AuthEndpoints
                 }
             });
 
-            var user = await auth.GetUserByEmailAsync(options.User.Name);
-            if (user == null) return Results.BadRequest("User not found");
-
             var credential = new UserCredential
             {
                 CredentialId = success.Id,
@@ -103,7 +111,7 @@ public static class AuthEndpoints
 
             await SignInUserAsync(ctx, auth, user.Id);
             return Results.Ok(success);
-        });
+        }).RequireAuthorization();
 
         // Passkey Login
         group.MapPost("/login/begin", (PasskeyLoginBeginDto dto, IFido2 fido2, HttpContext ctx) =>
@@ -177,10 +185,15 @@ public static class AuthEndpoints
         });
 
         // New: token in POST body — keeps it out of server access logs
-        group.MapPost("/magic-link/consume", async (MagicLinkConsumeRequest body, IAuthService auth, HttpContext ctx) =>
+        group.MapPost("/magic-link/consume", async (MagicLinkConsumeRequest body, IAuthService auth, IOptions<AuthSettings> authSettings, HttpContext ctx) =>
         {
             var email = await auth.ConsumeMagicLinkAsync(body.Token);
             if (email == null) return Results.BadRequest("Invalid or expired magic link");
+
+            if (!authSettings.Value.AllowedEmails.Contains(email))
+            {
+                return Results.Ok(new { status = "success", email = email });
+            }
 
             var user = await auth.GetUserByEmailAsync(email) ?? await auth.CreateUserAsync(email);
 

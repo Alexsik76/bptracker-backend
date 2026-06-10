@@ -24,6 +24,13 @@ public class AuthService : IAuthService
             .FirstOrDefaultAsync(u => u.Email == email);
     }
 
+    public async Task<User?> GetUserByIdAsync(Guid id)
+    {
+        return await _db.Users
+            .Include(u => u.Credentials)
+            .FirstOrDefaultAsync(u => u.Id == id);
+    }
+
     public async Task<User> CreateUserAsync(string email)
     {
         var user = new User { Email = email };

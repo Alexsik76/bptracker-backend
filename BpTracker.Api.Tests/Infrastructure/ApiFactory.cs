@@ -8,6 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Testcontainers.PostgreSql;
 using Xunit;
+using Fido2NetLib;
 
 namespace BpTracker.Api.Tests.Infrastructure;
 
@@ -18,11 +19,24 @@ public class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
     public FakeEmailSender EmailSender { get; } = new();
     public FakeGeminiService GeminiService { get; } = new();
     public FakePhotoApiService PhotoApiService { get; } = new();
+    public FakeFido2 Fido2 { get; } = new();
+    public HashSet<string>? AllowedEmails { get; set; } = null;
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.ConfigureTestServices(services =>
         {
+            // Replace Fido2 with fake
+            services.RemoveAll<IFido2>();
+            services.AddSingleton<IFido2>(Fido2);
+
+            // Replace AuthSettings options dynamically
+            services.RemoveAll<Microsoft.Extensions.Options.IOptions<BpTracker.Api.Models.AuthSettings>>();
+            services.AddTransient<Microsoft.Extensions.Options.IOptions<BpTracker.Api.Models.AuthSettings>>(sp =>
+            {
+                var allowed = AllowedEmails ?? EmailSender.Captured.Select(e => e.To).ToHashSet();
+                return Microsoft.Extensions.Options.Options.Create(new BpTracker.Api.Models.AuthSettings { AllowedEmails = allowed });
+            });
             // The production connection string is baked into DbContextOptions via a closure
             // in Program.cs, so ConfigureAppConfiguration is too late. Replace the options directly.
             services.RemoveAll<AppDbContext>();

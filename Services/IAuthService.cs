@@ -5,6 +5,7 @@ namespace BpTracker.Api.Services;
 public interface IAuthService
 {
     Task<User?> GetUserByEmailAsync(string email);
+    Task<User?> GetUserByIdAsync(Guid id);
     Task<User> CreateUserAsync(string email);
     Task<UserCredential?> GetCredentialByIdAsync(byte[] credentialId);
     Task AddCredentialAsync(User user, UserCredential credential);

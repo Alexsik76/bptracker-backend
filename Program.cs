@@ -109,6 +109,19 @@ builder.Services.AddScoped<IMeasurementService, MeasurementService>();
 builder.Services.AddScoped<ISchemaService, SchemaService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 
+builder.Services.Configure<AuthSettings>(options =>
+{
+    var allowedEmailsStr = builder.Configuration["ALLOWED_EMAILS"];
+    if (string.IsNullOrEmpty(allowedEmailsStr))
+    {
+        options.AllowedEmails = [];
+    }
+    else
+    {
+        options.AllowedEmails = allowedEmailsStr.Split(',').ToHashSet();
+    }
+});
+
 builder.Services.Configure<SmtpSettings>(options =>
 {
     options.Host = builder.Configuration["SMTP_HOST"] ?? string.Empty;
