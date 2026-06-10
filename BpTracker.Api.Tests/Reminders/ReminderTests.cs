@@ -188,6 +188,7 @@ public class ReminderTests : IClassFixture<ApiFactory>
         var report1 = await res1.Content.ReadFromJsonAsync<IntakeReport>();
         report1.Should().NotBeNull();
         report1!.Status.Should().Be(IntakeStatus.Confirmed);
+        report1.Time.Offset.Should().Be(TimeSpan.Zero);
 
         var res2 = await client.PostJsonAsync("/api/v1/reminders/confirm", confirmDto);
         res2.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -197,7 +198,7 @@ public class ReminderTests : IClassFixture<ApiFactory>
 
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        var count = await db.IntakeReports.CountAsync();
+        var count = await db.IntakeReports.CountAsync(r => r.TemplateId == report1.TemplateId);
         count.Should().Be(1);
     }
 
@@ -285,5 +286,39 @@ public class ReminderTests : IClassFixture<ApiFactory>
         payload.GetProperty("period").GetString().Should().Be("Morning");
         payload.GetProperty("date").GetString().Should().Be("2026-06-10");
         payload.GetProperty("templateId").GetString().Should().Be(template.Id.ToString());
+    }
+
+    [Fact]
+    public async Task Worker_ProcessTick_SavesMissedReportInDb()
+    {
+        var (user, token) = await TestUser.CreateAsync(_factory);
+        var client = _factory.CreateClient().AuthAs(token);
+
+        var schemaId = await CreateSchemaAsync(client);
+        var createDto = CreateTemplateBody(schemaId, isActive: true);
+        var templateRes = await client.PostJsonAsync("/api/v1/reminders/template", createDto);
+        var template = (await templateRes.Content.ReadFromJsonAsync<ReminderTemplate>())!;
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var logger = scope.ServiceProvider.GetRequiredService<ILogger<ReminderWorker>>();
+        var worker = new ReminderWorker(scope.ServiceProvider.GetRequiredService<IServiceScopeFactory>(), logger);
+
+        var tz = TimeZoneInfo.FindSystemTimeZoneById("Europe/Kiev");
+        var nowLocal = new DateTime(2026, 6, 10, 8, 16, 0, DateTimeKind.Unspecified);
+        var now = new DateTimeOffset(nowLocal, tz.GetUtcOffset(nowLocal));
+
+        // Clear existing reports
+        await db.Database.ExecuteSqlRawAsync("TRUNCATE TABLE \"IntakeReports\" RESTART IDENTITY CASCADE");
+
+        await worker.ProcessTickAsync(now, default);
+
+        var reports = await db.IntakeReports.ToListAsync();
+        reports.Should().HaveCount(1);
+        
+        var morningReport = reports.FirstOrDefault(r => r.Period == "Morning");
+        morningReport.Should().NotBeNull();
+        morningReport!.Status.Should().Be(IntakeStatus.Missed);
+        morningReport.Time.Offset.Should().Be(TimeSpan.Zero);
     }
 }

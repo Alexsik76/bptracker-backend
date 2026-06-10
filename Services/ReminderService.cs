@@ -120,7 +120,7 @@ public class ReminderService : IReminderService
             Period = period,
             Date = today,
             Status = IntakeStatus.Confirmed,
-            Time = DateTimeOffset.UtcNow
+            Time = DateTimeOffset.UtcNow.ToUniversalTime()
         };
 
         _db.IntakeReports.Add(report);

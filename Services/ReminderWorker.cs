@@ -137,7 +137,7 @@ public class ReminderWorker : BackgroundService
                     Period = periodName,
                     Date = todayLocal,
                     Status = IntakeStatus.Missed,
-                    Time = decision.MissedReportTime ?? now
+                    Time = (decision.MissedReportTime ?? now).ToUniversalTime()
                 };
 
                 try
