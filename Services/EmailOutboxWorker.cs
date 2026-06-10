@@ -38,7 +38,7 @@ public class EmailOutboxWorker : BackgroundService
     {
         using var scope = _scopeFactory.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        var sender = scope.ServiceProvider.GetRequiredService<SmtpEmailSender>();
+        var sender = scope.ServiceProvider.GetRequiredService<IEmailSender>();
 
         var items = await db.EmailOutbox
             .Where(e => (e.Status == EmailStatus.Pending || e.Status == EmailStatus.Failed)

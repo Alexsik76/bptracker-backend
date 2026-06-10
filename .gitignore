@@ -15,6 +15,7 @@ publish/
 appsettings.Development.json
 usersecrets.json
 .env
+.env.local.dev
 
 # Docker
 .docker/

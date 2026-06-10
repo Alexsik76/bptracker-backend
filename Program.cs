@@ -120,7 +120,11 @@ builder.Services.Configure<SmtpSettings>(options =>
     options.UseTls = builder.Configuration["SMTP_TLS"] != "false";
 });
 builder.Services.AddScoped<SmtpEmailSender>();
-builder.Services.AddScoped<IEmailSender, ResilientEmailSender>();
+var smtpConfigured = !string.IsNullOrEmpty(builder.Configuration["SMTP_HOST"]);
+if (builder.Environment.IsDevelopment() && !smtpConfigured)
+    builder.Services.AddScoped<IEmailSender, DevConsoleEmailSender>();
+else
+    builder.Services.AddScoped<IEmailSender, ResilientEmailSender>();
 builder.Services.AddHostedService<EmailOutboxWorker>();
 builder.Services.AddHostedService<CleanupWorker>();
 
