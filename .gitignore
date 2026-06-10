@@ -16,6 +16,10 @@ appsettings.Development.json
 usersecrets.json
 .env
 .env.local.dev
+run-local.ps1
+
+# Local DB backups
+backups/
 
 # Docker
 .docker/
