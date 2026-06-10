@@ -48,6 +48,9 @@ services:
       PHOTO_API_DEVICE_MODEL: ${PHOTO_API_DEVICE_MODEL:-Paramed Expert-X}
       SEQ_URL: http://seq:80
       ALLOWED_EMAILS: ${ALLOWED_EMAILS}
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY}
+      VAPID_SUBJECT: ${VAPID_SUBJECT}
     volumes:
       - dataprotection-keys:/root/.aspnet/DataProtection-Keys
     ports:
