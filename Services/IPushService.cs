@@ -1,6 +1,7 @@
 using System;
 using System.Threading.Tasks;
 using BpTracker.Api.DTOs;
+using Lib.Net.Http.WebPush;
 
 namespace BpTracker.Api.Services;
 
@@ -15,4 +16,17 @@ public interface IPushService
         string? period = null,
         string? date = null,
         string? templateId = null);
+
+    Task<(int sent, int failed, int subscriptions)> SendCustomToUserAsync(
+        Guid userId,
+        string title,
+        string body,
+        PushMessageUrgency urgency,
+        int? ttl,
+        string? period = null,
+        string? date = null,
+        string? templateId = null,
+        string? tag = null,
+        bool? renotify = null);
 }
+
