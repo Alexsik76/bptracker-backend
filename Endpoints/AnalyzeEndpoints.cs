@@ -15,19 +15,19 @@ public static class AnalyzeEndpoints
         app.MapPost("/api/v1/measurements/analyze", async (HttpContext ctx, IGeminiService gemini, IPhotoApiService photoApi, IOptions<PhotoApiSettings> photoApiOptions, AppDbContext db, ILogger<Program> logger) =>
         {
             if (!ctx.Request.HasFormContentType)
-                return Results.BadRequest(new { error = "Очікується multipart/form-data" });
+                return Results.BadRequest(new { error = "Expected multipart/form-data" });
 
             var form = await ctx.Request.ReadFormAsync();
             var file = form.Files.GetFile("image");
 
             if (file is null)
-                return Results.BadRequest(new { error = "Файл зображення відсутній" });
+                return Results.BadRequest(new { error = "Image file is missing" });
 
             if (!file.ContentType.StartsWith("image/"))
-                return Results.BadRequest(new { error = "Файл повинен бути зображенням" });
+                return Results.BadRequest(new { error = "File must be an image" });
 
             if (file.Length > MaxFileSizeBytes)
-                return Results.BadRequest(new { error = "Файл перевищує 10 МБ" });
+                return Results.BadRequest(new { error = "File exceeds 10 MB" });
 
             var userId = Guid.Parse(ctx.User.FindFirstValue(ClaimTypes.NameIdentifier)!);
             var userSettings = await db.UserSettings.FindAsync(userId);
@@ -37,7 +37,7 @@ public static class AnalyzeEndpoints
             await file.CopyToAsync(ms);
             var imageBytes = ms.ToArray();
 
-            // Спершу пробуємо розпізнати локально через aivm-photo-api
+            // Try local recognition via aivm-photo-api first
             var localResult = await photoApi.RecognizeAsync(imageBytes);
             if (localResult != null)
             {
@@ -45,7 +45,7 @@ public static class AnalyzeEndpoints
                 return Results.Ok(localResult);
             }
 
-            // Якщо локальне розпізнавання недоступне або завершилось помилкою - фоллбек до Gemini
+            // If local recognition is unavailable or failed, fall back to Gemini
             if (photoApiOptions.Value.Enabled)
                 logger.LogWarning("Local recognition unavailable or failed, falling back to Gemini");
 
@@ -57,7 +57,7 @@ public static class AnalyzeEndpoints
             }
             catch (HttpRequestException ex)
             {
-                return Results.Json(new { error = $"Помилка Gemini API: {ex.Message}" }, statusCode: 502);
+                return Results.Json(new { error = $"Gemini API error: {ex.Message}" }, statusCode: 502);
             }
             catch (InvalidOperationException ex)
             {

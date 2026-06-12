@@ -64,7 +64,7 @@ public class GeminiService : IGeminiService
         }
         else
         {
-            throw new InvalidOperationException("Gemini не налаштований. Вкажіть Gemini API URL у налаштуваннях.");
+            throw new InvalidOperationException("Gemini is not configured. Please specify Gemini API URL in settings.");
         }
 
         using var request = new HttpRequestMessage(HttpMethod.Post, endpointUrl);
@@ -98,7 +98,7 @@ public class GeminiService : IGeminiService
             .GetProperty("content")
             .GetProperty("parts")[0]
             .GetProperty("text")
-            .GetString() ?? throw new InvalidOperationException("Gemini повернув порожню відповідь");
+            .GetString() ?? throw new InvalidOperationException("Gemini returned an empty response");
 
         // Clean markdown if present
         text = text.Trim();
@@ -114,9 +114,9 @@ public class GeminiService : IGeminiService
         var dia = GetInt(root, "diastolic");
         var pulse = GetInt(root, "pulse");
 
-        if (sys is < 40 or > 300) throw new InvalidOperationException($"Систолічний тиск {sys} поза допустимим діапазоном (40–300)");
-        if (dia is < 20 or > 200) throw new InvalidOperationException($"Діастолічний тиск {dia} поза допустимим діапазоном (20–200)");
-        if (pulse is < 30 or > 250) throw new InvalidOperationException($"Пульс {pulse} поза допустимим діапазоном (30–250)");
+        if (sys is < 40 or > 300) throw new InvalidOperationException($"Systolic pressure {sys} is out of the acceptable range (40-300)");
+        if (dia is < 20 or > 200) throw new InvalidOperationException($"Diastolic pressure {dia} is out of the acceptable range (20-200)");
+        if (pulse is < 30 or > 250) throw new InvalidOperationException($"Pulse {pulse} is out of the acceptable range (30-250)");
 
         return new ImageAnalysisResultDto(sys, dia, pulse, "gemini_auto", null);
     }
@@ -124,7 +124,7 @@ public class GeminiService : IGeminiService
     private static int GetInt(JsonElement root, string key)
     {
         if (!root.TryGetProperty(key, out var el))
-            throw new InvalidOperationException($"Поле '{key}' відсутнє у відповіді AI");
+            throw new InvalidOperationException($"Field '{key}' is missing in AI response");
 
         if (el.ValueKind == JsonValueKind.Number)
             return (int)el.GetDouble();
@@ -132,6 +132,6 @@ public class GeminiService : IGeminiService
         if (el.ValueKind == JsonValueKind.String && int.TryParse(el.GetString(), out var val))
             return val;
 
-        throw new InvalidOperationException($"Не вдалося прочитати число з поля '{key}' (тип: {el.ValueKind})");
+        throw new InvalidOperationException($"Failed to read number from field '{key}' (type: {el.ValueKind})");
     }
 }

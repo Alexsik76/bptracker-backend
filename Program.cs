@@ -253,7 +253,7 @@ builder.Services.AddRateLimiter(options =>
     {
         ctx.HttpContext.Response.StatusCode = 429;
         await ctx.HttpContext.Response.WriteAsJsonAsync(
-            new { error = "Забагато запитів. Спробуйте пізніше." }, token);
+            new { error = "Too many requests. Try again later." }, token);
     };
 });
 

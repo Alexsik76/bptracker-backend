@@ -15,7 +15,7 @@ public class SchemaTests : IClassFixture<ApiFactory>
 
     // ── helpers ───────────────────────────────────────────────────────────────
 
-    private static object ValidSchedule(string medicine = "Валсакор 80 мг") => new
+    private static object ValidSchedule(string medicine = "Valsacor 80 mg") => new
     {
         Morning = new[]
         {
@@ -24,7 +24,7 @@ public class SchemaTests : IClassFixture<ApiFactory>
     };
 
     private static object CreateBody(
-        string doctor      = "Кардіолог Іваненко",
+        string doctor      = "Cardiologist Ivanenko",
         bool setActive     = false,
         object? schedule   = null,
         string? prescribedOn = null) => new
@@ -37,7 +37,7 @@ public class SchemaTests : IClassFixture<ApiFactory>
 
     private async Task<JsonElement> PostSchemaAsync(
         HttpClient client,
-        string doctor    = "Кардіолог Іваненко",
+        string doctor    = "Cardiologist Ivanenko",
         bool setActive   = false,
         object? schedule = null)
     {
@@ -91,9 +91,9 @@ public class SchemaTests : IClassFixture<ApiFactory>
 
         var res = await client.PostJsonAsync("/api/v1/schemas", new
         {
-            doctor       = "Кардіолог Іваненко",
+            doctor       = "Cardiologist Ivanenko",
             prescribedOn = "2026-06-01",
-            schedule     = ValidSchedule("Форксіга 10 мг"),
+            schedule     = ValidSchedule("Forxiga 10 mg"),
             setActive    = false
         });
 
@@ -101,8 +101,8 @@ public class SchemaTests : IClassFixture<ApiFactory>
 
         var schema = await res.Content.ReadFromJsonAsync<JsonElement>();
         Guid.TryParse(schema.GetProperty("id").GetString(), out _)
-            .Should().BeTrue("id має бути валідним UUID");
-        schema.GetProperty("doctor").GetString().Should().Be("Кардіолог Іваненко");
+            .Should().BeTrue("id must be a valid UUID");
+        schema.GetProperty("doctor").GetString().Should().Be("Cardiologist Ivanenko");
         schema.GetProperty("prescribedOn").GetString().Should().Be("2026-06-01");
         schema.GetProperty("isActive").GetBoolean().Should().BeFalse();
     }
@@ -115,8 +115,8 @@ public class SchemaTests : IClassFixture<ApiFactory>
         var (_, token) = await TestUser.CreateAsync(_factory);
         var client = _factory.CreateClient().AuthAs(token);
 
-        var first  = await PostSchemaAsync(client, "Лікар Перший",  setActive: true);
-        var second = await PostSchemaAsync(client, "Лікар Другий",  setActive: true);
+        var first  = await PostSchemaAsync(client, "Doctor First",  setActive: true);
+        var second = await PostSchemaAsync(client, "Doctor Second",  setActive: true);
 
         var firstId  = first.GetProperty("id").GetString()!;
         var secondId = second.GetProperty("id").GetString()!;
@@ -124,15 +124,15 @@ public class SchemaTests : IClassFixture<ApiFactory>
         var list = await GetAllAsync(client);
 
         list.Count(s => s.GetProperty("isActive").GetBoolean())
-            .Should().Be(1, "у користувача має бути рівно одна активна схема");
+            .Should().Be(1, "user must have exactly one active schema");
 
         list.Single(s => s.GetProperty("id").GetString() == firstId)
             .GetProperty("isActive").GetBoolean()
-            .Should().BeFalse("перша схема має бути деактивована після активації другої");
+            .Should().BeFalse("first schema must be deactivated after activating the second");
 
         list.Single(s => s.GetProperty("id").GetString() == secondId)
             .GetProperty("isActive").GetBoolean()
-            .Should().BeTrue("остання схема з setActive:true має залишатись активною");
+            .Should().BeTrue("the last schema with setActive:true must remain active");
     }
 
     [Fact]
@@ -141,8 +141,8 @@ public class SchemaTests : IClassFixture<ApiFactory>
         var (_, token) = await TestUser.CreateAsync(_factory);
         var client = _factory.CreateClient().AuthAs(token);
 
-        var first  = await PostSchemaAsync(client, "Лікар А", setActive: true);
-        var second = await PostSchemaAsync(client, "Лікар Б", setActive: true);
+        var first  = await PostSchemaAsync(client, "Doctor A", setActive: true);
+        var second = await PostSchemaAsync(client, "Doctor B", setActive: true);
 
         var firstId  = first.GetProperty("id").GetString()!;
         var secondId = second.GetProperty("id").GetString()!;
@@ -153,13 +153,13 @@ public class SchemaTests : IClassFixture<ApiFactory>
         var list = await GetAllAsync(client);
 
         list.Count(s => s.GetProperty("isActive").GetBoolean())
-            .Should().Be(1, "після activate у користувача має залишатись рівно одна активна схема");
+            .Should().Be(1, "after activate, user must have exactly one active schema");
 
         list.Single(s => s.GetProperty("id").GetString() == firstId)
-            .GetProperty("isActive").GetBoolean().Should().BeTrue("перша схема має стати активною");
+            .GetProperty("isActive").GetBoolean().Should().BeTrue("first schema must become active");
 
         list.Single(s => s.GetProperty("id").GetString() == secondId)
-            .GetProperty("isActive").GetBoolean().Should().BeFalse("друга схема має бути деактивована");
+            .GetProperty("isActive").GetBoolean().Should().BeFalse("second schema must be deactivated");
     }
 
     // ── public GET /active ────────────────────────────────────────────────────
@@ -170,7 +170,7 @@ public class SchemaTests : IClassFixture<ApiFactory>
         var (_, token) = await TestUser.CreateAsync(_factory);
         var authed = _factory.CreateClient().AuthAs(token);
 
-        var created  = await PostSchemaAsync(authed, "Приватний лікар", setActive: true);
+        var created  = await PostSchemaAsync(authed, "Private Doctor", setActive: true);
         var activeId = created.GetProperty("id").GetString()!;
 
         var res = await authed.GetAsync("/api/v1/schemas/active");
@@ -188,19 +188,19 @@ public class SchemaTests : IClassFixture<ApiFactory>
         var (_, token) = await TestUser.CreateAsync(_factory);
         var client = _factory.CreateClient().AuthAs(token);
 
-        var created = await PostSchemaAsync(client, "Оригінальний лікар");
+        var created = await PostSchemaAsync(client, "Original Doctor");
         var id = created.GetProperty("id").GetString()!;
 
         var res = await client.PutJsonAsync($"/api/v1/schemas/{id}", new
         {
-            doctor       = "Оновлений лікар",
+            doctor       = "Updated Doctor",
             prescribedOn = (string?)null,
             schedule     = ValidSchedule()
         });
 
         res.StatusCode.Should().Be(HttpStatusCode.OK);
         var updated = await res.Content.ReadFromJsonAsync<JsonElement>();
-        updated.GetProperty("doctor").GetString().Should().Be("Оновлений лікар");
+        updated.GetProperty("doctor").GetString().Should().Be("Updated Doctor");
         updated.GetProperty("id").GetString().Should().Be(id);
     }
 
@@ -261,7 +261,7 @@ public class SchemaTests : IClassFixture<ApiFactory>
 
         (await client.PostJsonAsync("/api/v1/schemas", CreateBody(schedule: new
         {
-            Night = new[] { new { Medicine = "Аспірин", Amount = "1.0", Condition = "None" } }
+            Night = new[] { new { Medicine = "Aspirin", Amount = "1.0", Condition = "None" } }
         }))).StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
 
@@ -277,11 +277,11 @@ public class SchemaTests : IClassFixture<ApiFactory>
 
         (await client.PostJsonAsync("/api/v1/schemas", CreateBody(schedule: new
         {
-            Morning = new[] { new { Medicine = "Аспірин", Amount = amount, Condition = "None" } }
+            Morning = new[] { new { Medicine = "Aspirin", Amount = amount, Condition = "None" } }
         }))).StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
 
-    // ── Amount зберігається як рядок ──────────────────────────────────────────
+    // ── Amount is stored as string ──────────────────────────────────────────
 
     [Fact]
     public async Task Amount_SentAsJsonNumber_StoredAsString()
@@ -289,10 +289,10 @@ public class SchemaTests : IClassFixture<ApiFactory>
         var (_, token) = await TestUser.CreateAsync(_factory);
         var client = _factory.CreateClient().AuthAs(token);
 
-        // Amount = 1.5 — число, не рядок
+        // Amount = 1.5 — number, not string
         var schema = await PostSchemaAsync(client, schedule: new
         {
-            Morning = new[] { new { Medicine = "Аспірин", Amount = 1.5, Condition = "None" } }
+            Morning = new[] { new { Medicine = "Aspirin", Amount = 1.5, Condition = "None" } }
         });
         var id = schema.GetProperty("id").GetString()!;
 
@@ -305,7 +305,7 @@ public class SchemaTests : IClassFixture<ApiFactory>
             .GetProperty("Amount");
 
         amountEl.ValueKind.Should().Be(JsonValueKind.String,
-            "Amount має зберігатись як JSON-рядок, не число");
+            "Amount must be stored as JSON string, not number");
         amountEl.GetString().Should().Be("1.5");
     }
 
@@ -317,7 +317,7 @@ public class SchemaTests : IClassFixture<ApiFactory>
         var (_, token) = await TestUser.CreateAsync(_factory);
         var client = _factory.CreateClient().AuthAs(token);
 
-        const string medicine = "Аторіс 20 мг";
+        const string medicine = "\u0410\u0442\u043E\u0440\u0456\u0441 20 \u043C\u0433";
 
         var schema = await PostSchemaAsync(client, schedule: new
         {

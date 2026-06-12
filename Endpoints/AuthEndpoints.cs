@@ -170,8 +170,8 @@ public static class AuthEndpoints
             {
                 await emailSender.SendAsync(
                     dto.Email,
-                    "Ваше посилання для входу в BP Tracker",
-                    $"Перейдіть за посиланням для входу (дійсне 15 хвилин):\n\n{consumeUrl}\n\nЯкщо ви не запитували це посилання — просто ігноруйте цей лист.",
+                    "Your BP Tracker Login Link",
+                    $"Please use the following link to log in (valid for 15 minutes):\n\n{consumeUrl}\n\nIf you did not request this link, you can safely ignore this email.",
                     [],
                     default);
             }

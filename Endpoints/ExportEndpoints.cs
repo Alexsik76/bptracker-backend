@@ -25,7 +25,7 @@ public static class ExportEndpoints
 
             var settings = await db.UserSettings.FindAsync(userId);
             if (string.IsNullOrEmpty(settings?.ExportEmail))
-                return Results.BadRequest(new { error = "Вкажіть email для експорту в налаштуваннях" });
+                return Results.BadRequest(new { error = "Please specify export email in settings" });
 
             var measurements = await db.Measurements
                 .Where(m => m.UserId == userId)
@@ -38,10 +38,10 @@ public static class ExportEndpoints
             db.EmailOutbox.Add(new EmailOutbox
             {
                 To = settings.ExportEmail,
-                Subject = $"BP Tracker — експорт від {exportDate}",
-                Body = "Ваші дані з BP Tracker за весь час у форматі CSV.\n\n" +
-                       "Для перегляду у зручному вигляді скопіюйте собі шаблон Google Sheets " +
-                       "та імпортуйте файл через File → Import → Replace current sheet.",
+                Subject = $"BP Tracker — export from {exportDate}",
+                Body = "Your historical BP Tracker data in CSV format.\n\n" +
+                       "To view it easily, copy the Google Sheets template " +
+                       "and import the file via File → Import → Replace current sheet.",
                 AttachmentsJson = JsonSerializer.Serialize(new[]
                 {
                     new { FileName = $"bp-tracker-{exportDate}.csv", Content = Convert.ToBase64String(csvBytes), ContentType = "text/csv" }
@@ -53,7 +53,7 @@ public static class ExportEndpoints
             user.LastExportAt = DateTimeOffset.UtcNow;
             await db.SaveChangesAsync();
 
-            return Results.Accepted(value: new { message = "Експорт у черзі", email = settings.ExportEmail });
+            return Results.Accepted(value: new { message = "Export is queued", email = settings.ExportEmail });
         }).RequireAuthorization();
     }
 

@@ -26,19 +26,19 @@ public static class SettingsEndpoints
             if (dto.GeminiUrl is not null)
             {
                 if (dto.GeminiUrl.Length > 0 && !Uri.TryCreate(dto.GeminiUrl, UriKind.Absolute, out _))
-                    return Results.BadRequest(new { error = "GeminiUrl має бути валідним абсолютним URL" });
+                    return Results.BadRequest(new { error = "GeminiUrl must be a valid absolute URL" });
                 settings.GeminiUrl = dto.GeminiUrl.Length == 0 ? null : dto.GeminiUrl;
             }
             if (dto.ExportEmail is not null)
             {
                 if (dto.ExportEmail.Length > 0 && !dto.ExportEmail.Contains('@'))
-                    return Results.BadRequest(new { error = "ExportEmail має бути валідною email-адресою" });
+                    return Results.BadRequest(new { error = "ExportEmail must be a valid email address" });
                 settings.ExportEmail = dto.ExportEmail.Length == 0 ? null : dto.ExportEmail;
             }
             if (dto.SheetsTemplateUrl is not null)
             {
                 if (dto.SheetsTemplateUrl.Length > 0 && !Uri.TryCreate(dto.SheetsTemplateUrl, UriKind.Absolute, out _))
-                    return Results.BadRequest(new { error = "SheetsTemplateUrl має бути валідним абсолютним URL" });
+                    return Results.BadRequest(new { error = "SheetsTemplateUrl must be a valid absolute URL" });
                 settings.SheetsTemplateUrl = dto.SheetsTemplateUrl.Length == 0 ? null : dto.SheetsTemplateUrl;
             }
             if (dto.SendPhotos is not null)
