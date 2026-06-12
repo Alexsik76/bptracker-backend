@@ -282,6 +282,7 @@ if (app.Environment.IsDevelopment())
             .WithTheme(ScalarTheme.Moon)
             .WithDefaultHttpClient(ScalarTarget.JavaScript, ScalarClient.Fetch);
     });
+    app.MapDevAuthEndpoints();
 }
 
 // Configure the HTTP request pipeline.
@@ -410,6 +411,19 @@ using (var scope = app.Services.CreateScope())
             if (i == maxAttempts - 1) throw;
             logger.LogWarning(ex, "Database not ready, retrying in 2 s (attempt {Attempt}/{Max})", i + 1, maxAttempts);
             Thread.Sleep(2000);
+        }
+    }
+
+    if (app.Environment.IsDevelopment())
+    {
+        try
+        {
+            await DbInitializer.SeedAsync(db);
+            logger.LogInformation("Development database seeded successfully");
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "An error occurred while seeding the development database");
         }
     }
 }

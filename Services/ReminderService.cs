@@ -116,6 +116,12 @@ public class ReminderService : IReminderService
 
         if (existing != null)
         {
+            if (existing.Status != IntakeStatus.Confirmed)
+            {
+                existing.Status = IntakeStatus.Confirmed;
+                existing.Time = _timeProvider.GetUtcNow().ToUniversalTime();
+                await _db.SaveChangesAsync();
+            }
             return existing;
         }
 

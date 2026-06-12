@@ -1,0 +1,24 @@
+services:
+  db:
+    image: postgres:16
+    container_name: bptracker-db-dev
+    environment:
+      POSTGRES_USER: bp_user
+      POSTGRES_PASSWORD: dev
+      POSTGRES_DB: bp_tracker
+    ports:
+      - "5436:5432"
+    volumes:
+      - pgdata_dev:/var/lib/postgresql/data
+  api:
+    build: .
+    container_name: bptracker-api-dev
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__DefaultConnection: "Host=db;Port=5432;Database=bp_tracker;Username=bp_user;Password=dev"
+    ports:
+      - "5000:8080"
+    depends_on:
+      - db
+volumes:
+  pgdata_dev:
