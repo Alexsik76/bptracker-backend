@@ -75,10 +75,10 @@ public class SchemaTests : IClassFixture<ApiFactory>
     }
 
     [Fact]
-    public async Task GetActive_WithoutSession_IsPublic()
+    public async Task GetActive_WithoutSession_Returns401()
     {
         var res = await _factory.CreateClient().GetAsync("/api/v1/schemas/active");
-        res.StatusCode.Should().BeOneOf(HttpStatusCode.OK, HttpStatusCode.NotFound);
+        res.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
 
     // ── create ────────────────────────────────────────────────────────────────
@@ -124,7 +124,7 @@ public class SchemaTests : IClassFixture<ApiFactory>
         var list = await GetAllAsync(client);
 
         list.Count(s => s.GetProperty("isActive").GetBoolean())
-            .Should().Be(1, "глобально має бути рівно одна активна схема");
+            .Should().Be(1, "у користувача має бути рівно одна активна схема");
 
         list.Single(s => s.GetProperty("id").GetString() == firstId)
             .GetProperty("isActive").GetBoolean()
@@ -153,7 +153,7 @@ public class SchemaTests : IClassFixture<ApiFactory>
         var list = await GetAllAsync(client);
 
         list.Count(s => s.GetProperty("isActive").GetBoolean())
-            .Should().Be(1, "після activate глобально має залишатись рівно одна активна схема");
+            .Should().Be(1, "після activate у користувача має залишатись рівно одна активна схема");
 
         list.Single(s => s.GetProperty("id").GetString() == firstId)
             .GetProperty("isActive").GetBoolean().Should().BeTrue("перша схема має стати активною");
@@ -165,15 +165,15 @@ public class SchemaTests : IClassFixture<ApiFactory>
     // ── public GET /active ────────────────────────────────────────────────────
 
     [Fact]
-    public async Task GetActive_ReturnsCurrentActiveSchema_Publicly()
+    public async Task GetActive_ReturnsCurrentActiveSchema()
     {
         var (_, token) = await TestUser.CreateAsync(_factory);
         var authed = _factory.CreateClient().AuthAs(token);
 
-        var created  = await PostSchemaAsync(authed, "Публічний лікар", setActive: true);
+        var created  = await PostSchemaAsync(authed, "Приватний лікар", setActive: true);
         var activeId = created.GetProperty("id").GetString()!;
 
-        var res = await _factory.CreateClient().GetAsync("/api/v1/schemas/active");
+        var res = await authed.GetAsync("/api/v1/schemas/active");
         res.StatusCode.Should().Be(HttpStatusCode.OK);
 
         (await res.Content.ReadFromJsonAsync<JsonElement>())

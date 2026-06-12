@@ -67,14 +67,32 @@ public class ReminderWorker : BackgroundService
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var pushService = scope.ServiceProvider.GetRequiredService<IPushService>();
 
-        var activeTemplate = await db.ReminderTemplates
-            .FirstOrDefaultAsync(t => t.IsActive, ct);
+        var activeTemplates = await db.ReminderTemplates
+            .Where(t => t.IsActive)
+            .ToListAsync(ct);
 
-        if (activeTemplate == null)
+        if (activeTemplates.Count == 0)
         {
             return;
         }
 
+        var nowLocal = TimeZoneInfo.ConvertTime(now, KyivTz);
+        var todayLocal = DateOnly.FromDateTime(nowLocal.DateTime);
+
+        foreach (var activeTemplate in activeTemplates)
+        {
+            await ProcessTemplateAsync(db, pushService, activeTemplate, now, todayLocal, ct);
+        }
+    }
+
+    private async Task ProcessTemplateAsync(
+        AppDbContext db,
+        IPushService pushService,
+        ReminderTemplate activeTemplate,
+        DateTimeOffset now,
+        DateOnly todayLocal,
+        CancellationToken ct)
+    {
         Dictionary<string, PeriodConfig>? periods;
         try
         {
@@ -94,11 +112,8 @@ public class ReminderWorker : BackgroundService
             return;
         }
 
-        var nowLocal = TimeZoneInfo.ConvertTime(now, KyivTz);
-        var todayLocal = DateOnly.FromDateTime(nowLocal.DateTime);
-
         var existingReports = await db.IntakeReports
-            .Where(r => r.TemplateId == activeTemplate.Id && r.Date == todayLocal)
+            .Where(r => r.TemplateId == activeTemplate.Id && r.UserId == activeTemplate.UserId && r.Date == todayLocal)
             .ToListAsync(ct);
 
         foreach (var (periodName, config) in periods)
@@ -110,34 +125,33 @@ public class ReminderWorker : BackgroundService
 
             if (decision.Action == ReminderActionType.SendPush)
             {
-                _logger.LogInformation("Sending push notification for period {Period}, reminder {Index}", periodName, decision.ReminderIndex);
-                var users = await db.Users.Select(u => u.Id).ToListAsync(ct);
-                var title = $"BP Tracker Reminder";
+                _logger.LogInformation("Sending push notification for user {UserId}, period {Period}, reminder {Index}",
+                    activeTemplate.UserId, periodName, decision.ReminderIndex);
+                var title = "BP Tracker Reminder";
                 var medsList = string.Join(", ", config.Meds);
                 var body = $"Time to take your medications for {periodName}: {medsList}";
 
-                foreach (var userId in users)
-                {
-                    await pushService.SendToUserAsync(
-                        userId,
-                        title,
-                        body,
-                        period: periodName,
-                        date: todayLocal.ToString("yyyy-MM-dd"),
-                        templateId: activeTemplate.Id.ToString()
-                    );
-                }
+                await pushService.SendToUserAsync(
+                    activeTemplate.UserId,
+                    title,
+                    body,
+                    period: periodName,
+                    date: todayLocal.ToString("yyyy-MM-dd"),
+                    templateId: activeTemplate.Id.ToString()
+                );
             }
             else if (decision.Action == ReminderActionType.RecordMissed)
             {
-                _logger.LogInformation("Recording missed intake for period {Period} and date {Date}", periodName, todayLocal);
+                _logger.LogInformation("Recording missed intake for user {UserId}, period {Period}, date {Date}",
+                    activeTemplate.UserId, periodName, todayLocal);
                 var missedReport = new IntakeReport
                 {
                     TemplateId = activeTemplate.Id,
                     Period = periodName,
                     Date = todayLocal,
                     Status = IntakeStatus.Missed,
-                    Time = (decision.MissedReportTime ?? now).ToUniversalTime()
+                    Time = (decision.MissedReportTime ?? now).ToUniversalTime(),
+                    UserId = activeTemplate.UserId
                 };
 
                 try

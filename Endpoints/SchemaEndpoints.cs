@@ -3,6 +3,7 @@ using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Unicode;
 using BpTracker.Api.DTOs;
+using BpTracker.Api.Extensions;
 using BpTracker.Api.Services;
 
 namespace BpTracker.Api.Endpoints;
@@ -26,22 +27,30 @@ public static class SchemaEndpoints
 
     public static void MapSchemaEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/api/v1/schemas");
+        var group = app.MapGroup("/api/v1/schemas").RequireAuthorization();
 
-        // Public — фронт залежить від цього ендпоінту, не чіпаємо
-        group.MapGet("/active", async (ISchemaService service) =>
+        group.MapGet("/active", async (ISchemaService service, HttpContext ctx) =>
         {
-            var schema = await service.GetActiveAsync();
+            var userId = ctx.GetUserId();
+            if (userId == null) return Results.Unauthorized();
+
+            var schema = await service.GetActiveAsync(userId.Value);
             return schema is not null ? Results.Ok(schema) : Results.NotFound();
         });
 
-        var auth = group.MapGroup("").RequireAuthorization();
-
-        auth.MapGet("/", async (ISchemaService service) =>
-            Results.Ok(await service.GetAllAsync()));
-
-        auth.MapPost("/", async (CreateSchemaRequest req, ISchemaService service) =>
+        group.MapGet("/", async (ISchemaService service, HttpContext ctx) =>
         {
+            var userId = ctx.GetUserId();
+            if (userId == null) return Results.Unauthorized();
+
+            return Results.Ok(await service.GetAllAsync(userId.Value));
+        });
+
+        group.MapPost("/", async (CreateSchemaRequest req, ISchemaService service, HttpContext ctx) =>
+        {
+            var userId = ctx.GetUserId();
+            if (userId == null) return Results.Unauthorized();
+
             var errors = new Dictionary<string, string[]>();
 
             if (string.IsNullOrWhiteSpace(req.Doctor))
@@ -55,13 +64,16 @@ public static class SchemaEndpoints
                 return Results.ValidationProblem(errors);
 
             var schema = await service.CreateAsync(
-                req.Doctor.Trim(), req.PrescribedOn, scheduleDoc!, req.SetActive);
+                userId.Value, req.Doctor.Trim(), req.PrescribedOn, scheduleDoc!, req.SetActive);
 
             return Results.Created($"/api/v1/schemas/{schema.Id}", schema);
         });
 
-        auth.MapPut("/{id:guid}", async (Guid id, UpdateSchemaRequest req, ISchemaService service) =>
+        group.MapPut("/{id:guid}", async (Guid id, UpdateSchemaRequest req, ISchemaService service, HttpContext ctx) =>
         {
+            var userId = ctx.GetUserId();
+            if (userId == null) return Results.Unauthorized();
+
             var errors = new Dictionary<string, string[]>();
 
             if (string.IsNullOrWhiteSpace(req.Doctor))
@@ -74,13 +86,16 @@ public static class SchemaEndpoints
             if (errors.Count > 0)
                 return Results.ValidationProblem(errors);
 
-            var schema = await service.UpdateAsync(id, req.Doctor.Trim(), req.PrescribedOn, scheduleDoc!);
+            var schema = await service.UpdateAsync(userId.Value, id, req.Doctor.Trim(), req.PrescribedOn, scheduleDoc!);
             return schema is not null ? Results.Ok(schema) : Results.NotFound();
         });
 
-        auth.MapPost("/{id:guid}/activate", async (Guid id, ISchemaService service) =>
+        group.MapPost("/{id:guid}/activate", async (Guid id, ISchemaService service, HttpContext ctx) =>
         {
-            var activated = await service.ActivateAsync(id);
+            var userId = ctx.GetUserId();
+            if (userId == null) return Results.Unauthorized();
+
+            var activated = await service.ActivateAsync(userId.Value, id);
             return activated ? Results.NoContent() : Results.NotFound();
         });
     }

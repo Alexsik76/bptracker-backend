@@ -47,7 +47,8 @@ public static class ExportEndpoints
                     new { FileName = $"bp-tracker-{exportDate}.csv", Content = Convert.ToBase64String(csvBytes), ContentType = "text/csv" }
                 }),
                 Status = EmailStatus.Pending,
-                NextAttemptAt = DateTime.UtcNow
+                NextAttemptAt = DateTime.UtcNow,
+                UserId = userId
             });
             user.LastExportAt = DateTime.UtcNow;
             await db.SaveChangesAsync();

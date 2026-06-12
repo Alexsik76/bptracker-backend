@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 
 namespace BpTracker.Api.Models;
 
@@ -32,4 +33,9 @@ public class EmailOutbox
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime NextAttemptAt { get; set; } = DateTime.UtcNow;
+
+    public Guid? UserId { get; set; }
+
+    [JsonIgnore]
+    public User? User { get; set; }
 }

@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace BpTracker.Api.Models;
 
@@ -15,4 +16,9 @@ public class TreatmentSchema
     public bool IsActive { get; set; }
 
     public JsonDocument? ScheduleDocument { get; set; }
+
+    public Guid UserId { get; set; }
+
+    [JsonIgnore]
+    public User User { get; set; } = null!;
 }

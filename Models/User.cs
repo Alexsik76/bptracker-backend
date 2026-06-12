@@ -17,4 +17,8 @@ public class User
     public UserSetting? Settings { get; set; }
     public ICollection<UserSession> Sessions { get; set; } = new List<UserSession>();
     public ICollection<Measurement> Measurements { get; set; } = new List<Measurement>();
+    public ICollection<TreatmentSchema> TreatmentSchemas { get; set; } = new List<TreatmentSchema>();
+    public ICollection<ReminderTemplate> ReminderTemplates { get; set; } = new List<ReminderTemplate>();
+    public ICollection<IntakeReport> IntakeReports { get; set; } = new List<IntakeReport>();
+    public ICollection<EmailOutbox> EmailOutboxItems { get; set; } = new List<EmailOutbox>();
 }

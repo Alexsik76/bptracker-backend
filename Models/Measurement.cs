@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 
 namespace BpTracker.Api.Models;
 
@@ -18,5 +19,7 @@ public class Measurement
     public int Pulse { get; set; }
 
     public Guid UserId { get; set; }
+
+    [JsonIgnore]
     public User User { get; set; } = null!;
 }

@@ -20,9 +20,12 @@ public static class ReminderEndpoints
             return Results.Created($"/api/v1/reminders/template/{template.Id}", template);
         });
 
-        group.MapPatch("/template/{id:guid}", async (Guid id, UpdateTemplateDto dto, IReminderService reminder) =>
+        group.MapPatch("/template/{id:guid}", async (Guid id, UpdateTemplateDto dto, IReminderService reminder, HttpContext ctx) =>
         {
-            var template = await reminder.UpdateTemplateAsync(id, dto);
+            var userId = ctx.GetUserId();
+            if (userId == null) return Results.Unauthorized();
+
+            var template = await reminder.UpdateTemplateAsync(userId.Value, id, dto);
             return template is not null ? Results.Ok(template) : Results.NotFound();
         });
 

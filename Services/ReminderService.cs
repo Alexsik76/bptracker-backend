@@ -29,7 +29,8 @@ public class ReminderService : IReminderService
             Periods = jsonDoc,
             DurationMinutes = dto.DurationMinutes,
             MaxReminders = dto.MaxReminders,
-            IsActive = dto.IsActive
+            IsActive = dto.IsActive,
+            UserId = userId
         };
 
         if (dto.IsActive)
@@ -37,7 +38,7 @@ public class ReminderService : IReminderService
             await using var tx = await _db.Database.BeginTransactionAsync();
 
             await _db.ReminderTemplates
-                .Where(t => t.IsActive)
+                .Where(t => t.UserId == userId && t.IsActive)
                 .ExecuteUpdateAsync(t => t.SetProperty(e => e.IsActive, false));
 
             _db.ReminderTemplates.Add(template);
@@ -53,9 +54,10 @@ public class ReminderService : IReminderService
         return template;
     }
 
-    public async Task<ReminderTemplate?> UpdateTemplateAsync(Guid id, UpdateTemplateDto dto)
+    public async Task<ReminderTemplate?> UpdateTemplateAsync(Guid userId, Guid id, UpdateTemplateDto dto)
     {
-        var template = await _db.ReminderTemplates.FindAsync(id);
+        var template = await _db.ReminderTemplates
+            .FirstOrDefaultAsync(t => t.Id == id && t.UserId == userId);
         if (template == null) return null;
 
         await using var tx = await _db.Database.BeginTransactionAsync();
@@ -65,7 +67,7 @@ public class ReminderService : IReminderService
             if (dto.IsActive.Value)
             {
                 await _db.ReminderTemplates
-                    .Where(t => t.IsActive && t.Id != id)
+                    .Where(t => t.UserId == userId && t.IsActive && t.Id != id)
                     .ExecuteUpdateAsync(t => t.SetProperty(e => e.IsActive, false));
             }
             template.IsActive = dto.IsActive.Value;
@@ -96,7 +98,7 @@ public class ReminderService : IReminderService
     {
         return await _db.ReminderTemplates
             .Include(t => t.Schema)
-            .FirstOrDefaultAsync(t => t.IsActive);
+            .FirstOrDefaultAsync(t => t.UserId == userId && t.IsActive);
     }
 
     public async Task<IntakeReport?> ConfirmAsync(Guid userId, string period)
@@ -107,7 +109,7 @@ public class ReminderService : IReminderService
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
 
         var existing = await _db.IntakeReports
-            .FirstOrDefaultAsync(r => r.TemplateId == activeTemplate.Id && r.Period == period && r.Date == today);
+            .FirstOrDefaultAsync(r => r.TemplateId == activeTemplate.Id && r.UserId == userId && r.Period == period && r.Date == today);
 
         if (existing != null)
         {
@@ -120,7 +122,8 @@ public class ReminderService : IReminderService
             Period = period,
             Date = today,
             Status = IntakeStatus.Confirmed,
-            Time = DateTimeOffset.UtcNow.ToUniversalTime()
+            Time = DateTimeOffset.UtcNow.ToUniversalTime(),
+            UserId = userId
         };
 
         _db.IntakeReports.Add(report);
@@ -132,7 +135,7 @@ public class ReminderService : IReminderService
         {
             var concurrent = await _db.IntakeReports
                 .AsNoTracking()
-                .FirstOrDefaultAsync(r => r.TemplateId == activeTemplate.Id && r.Period == period && r.Date == today);
+                .FirstOrDefaultAsync(r => r.TemplateId == activeTemplate.Id && r.UserId == userId && r.Period == period && r.Date == today);
             if (concurrent != null) return concurrent;
             throw;
         }
@@ -145,7 +148,7 @@ public class ReminderService : IReminderService
         var cutoff = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-days));
         return await _db.IntakeReports
             .Include(r => r.Template)
-            .Where(r => r.Date >= cutoff)
+            .Where(r => r.UserId == userId && r.Date >= cutoff)
             .OrderByDescending(r => r.Date)
             .ThenBy(r => r.Period)
             .ToListAsync();

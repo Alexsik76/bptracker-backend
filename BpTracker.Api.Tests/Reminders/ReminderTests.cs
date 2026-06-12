@@ -276,8 +276,11 @@ public class ReminderTests : IClassFixture<ApiFactory>
 
         await worker.ProcessTickAsync(now, default);
 
-        _factory.WebPushClient.Sent.Should().HaveCount(1);
-        var (subscription, message) = _factory.WebPushClient.Sent[0];
+        var sentForMe = _factory.WebPushClient.Sent
+            .Where(s => s.Subscription.Endpoint == "https://updates.push.services.mozilla.com/wpush/v2/gAAAAA")
+            .ToList();
+        sentForMe.Should().HaveCount(1);
+        var (subscription, message) = sentForMe[0];
 
         subscription.Endpoint.Should().Be("https://updates.push.services.mozilla.com/wpush/v2/gAAAAA");
         
@@ -313,12 +316,57 @@ public class ReminderTests : IClassFixture<ApiFactory>
 
         await worker.ProcessTickAsync(now, default);
 
-        var reports = await db.IntakeReports.ToListAsync();
+        var reports = await db.IntakeReports.Where(r => r.TemplateId == template.Id).ToListAsync();
         reports.Should().HaveCount(1);
         
         var morningReport = reports.FirstOrDefault(r => r.Period == "Morning");
         morningReport.Should().NotBeNull();
         morningReport!.Status.Should().Be(IntakeStatus.Missed);
         morningReport.Time.Offset.Should().Be(TimeSpan.Zero);
+    }
+
+    [Fact]
+    public async Task IntakeReport_DuplicateInsert_ThrowsDbUpdateException()
+    {
+        var (user, token) = await TestUser.CreateAsync(_factory);
+        var client = _factory.CreateClient().AuthAs(token);
+
+        var schemaId = await CreateSchemaAsync(client);
+        var createDto = CreateTemplateBody(schemaId, isActive: true);
+        var templateRes = await client.PostJsonAsync("/api/v1/reminders/template", createDto);
+        var template = (await templateRes.Content.ReadFromJsonAsync<ReminderTemplate>())!;
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        var date = new DateOnly(2026, 6, 12);
+
+        var report1 = new IntakeReport
+        {
+            TemplateId = template.Id,
+            Period = "Morning",
+            Date = date,
+            Status = IntakeStatus.Confirmed,
+            Time = DateTimeOffset.UtcNow,
+            UserId = user.Id
+        };
+
+        var report2 = new IntakeReport
+        {
+            TemplateId = template.Id,
+            Period = "Morning",
+            Date = date,
+            Status = IntakeStatus.Confirmed,
+            Time = DateTimeOffset.UtcNow,
+            UserId = user.Id
+        };
+
+        db.IntakeReports.Add(report1);
+        await db.SaveChangesAsync();
+
+        db.IntakeReports.Add(report2);
+        Func<Task> action = async () => await db.SaveChangesAsync();
+
+        await action.Should().ThrowAsync<DbUpdateException>();
     }
 }

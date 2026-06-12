@@ -56,6 +56,10 @@ public class AppDbContext : DbContext
             {
                 entity.Property(e => e.AttachmentsJson).HasColumnType("jsonb");
             }
+            entity.HasOne(e => e.User)
+                  .WithMany(u => u.EmailOutboxItems)
+                  .HasForeignKey(e => e.UserId)
+                  .OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<MagicLink>(entity =>
@@ -85,17 +89,23 @@ public class AppDbContext : DbContext
                   .WithMany()
                   .HasForeignKey(e => e.SchemaId)
                   .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.User)
+                  .WithMany(u => u.ReminderTemplates)
+                  .HasForeignKey(e => e.UserId);
         });
 
         modelBuilder.Entity<IntakeReport>(entity =>
         {
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Status).HasConversion<string>();
-            entity.HasIndex(e => new { e.TemplateId, e.Period, e.Date }).IsUnique();
+            entity.HasIndex(e => new { e.UserId, e.TemplateId, e.Period, e.Date }).IsUnique();
             entity.HasOne(e => e.Template)
                   .WithMany()
                   .HasForeignKey(e => e.TemplateId)
                   .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(e => e.User)
+                  .WithMany(u => u.IntakeReports)
+                  .HasForeignKey(e => e.UserId);
         });
 
         modelBuilder.Entity<Measurement>(entity =>
@@ -120,6 +130,9 @@ public class AppDbContext : DbContext
             {
                 entity.Property(e => e.ScheduleDocument).HasColumnType("jsonb");
             }
+            entity.HasOne(e => e.User)
+                  .WithMany(u => u.TreatmentSchemas)
+                  .HasForeignKey(e => e.UserId);
         });
     }
 }
