@@ -7,7 +7,7 @@ public class Measurement
 {
     public Guid Id { get; set; } = Guid.NewGuid();
 
-    public DateTime RecordedAt { get; set; } = DateTime.UtcNow;
+    public DateTimeOffset RecordedAt { get; set; } = DateTimeOffset.UtcNow;
 
     [Range(40, 300)]
     public int Sys { get; set; }

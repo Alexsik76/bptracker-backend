@@ -43,8 +43,31 @@ public static class ReminderEndpoints
             var userId = ctx.GetUserId();
             if (userId == null) return Results.Unauthorized();
 
-            var report = await reminder.ConfirmAsync(userId.Value, dto.Period);
-            return report is not null ? Results.Ok(report) : Results.BadRequest("No active reminder template found");
+            try
+            {
+                var report = await reminder.ConfirmAsync(userId.Value, dto.Period, dto.Timezone);
+                return report is not null ? Results.Ok(report) : Results.BadRequest("No active reminder template found");
+            }
+            catch (ArgumentException ex) when (ex.ParamName == "timezone")
+            {
+                return Results.BadRequest(new { error = ex.Message });
+            }
+        });
+
+        group.MapGet("/today", async ([FromQuery] string? timezone, IReminderService reminder, HttpContext ctx) =>
+        {
+            var userId = ctx.GetUserId();
+            if (userId == null) return Results.Unauthorized();
+
+            try
+            {
+                var result = await reminder.GetTodayMedsAsync(userId.Value, timezone);
+                return Results.Ok(result);
+            }
+            catch (ArgumentException ex) when (ex.ParamName == "timezone")
+            {
+                return Results.BadRequest(new { error = ex.Message });
+            }
         });
 
         group.MapGet("/reports", async ([FromQuery] int? days, IReminderService reminder, HttpContext ctx) =>

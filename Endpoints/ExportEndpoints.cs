@@ -20,7 +20,7 @@ public static class ExportEndpoints
             var user = await db.Users.FindAsync(userId);
             if (user == null) return Results.Unauthorized();
 
-            if (user.LastExportAt.HasValue && DateTime.UtcNow - user.LastExportAt.Value < ExportCooldown)
+            if (user.LastExportAt.HasValue && DateTimeOffset.UtcNow - user.LastExportAt.Value < ExportCooldown)
                 return Results.StatusCode(StatusCodes.Status429TooManyRequests);
 
             var settings = await db.UserSettings.FindAsync(userId);
@@ -47,10 +47,10 @@ public static class ExportEndpoints
                     new { FileName = $"bp-tracker-{exportDate}.csv", Content = Convert.ToBase64String(csvBytes), ContentType = "text/csv" }
                 }),
                 Status = EmailStatus.Pending,
-                NextAttemptAt = DateTime.UtcNow,
+                NextAttemptAt = DateTimeOffset.UtcNow,
                 UserId = userId
             });
-            user.LastExportAt = DateTime.UtcNow;
+            user.LastExportAt = DateTimeOffset.UtcNow;
             await db.SaveChangesAsync();
 
             return Results.Accepted(value: new { message = "Експорт у черзі", email = settings.ExportEmail });
@@ -76,7 +76,7 @@ public static class ExportEndpoints
         sb.AppendLine("timestamp,systolic,diastolic,pulse");
         foreach (var m in measurements)
         {
-            var local = TimeZoneInfo.ConvertTimeFromUtc(m.RecordedAt, _exportTz);
+            var local = TimeZoneInfo.ConvertTime(m.RecordedAt, _exportTz);
             sb.AppendLine(FormattableString.Invariant($"{local:yyyy-MM-dd HH:mm:ss},{m.Sys},{m.Dia},{m.Pulse}"));
         }
         return sb.ToString();

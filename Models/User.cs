@@ -9,9 +9,9 @@ public class User
     [Required]
     public string Email { get; set; } = string.Empty;
 
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
 
-    public DateTime? LastExportAt { get; set; }
+    public DateTimeOffset? LastExportAt { get; set; }
 
     public ICollection<UserCredential> Credentials { get; set; } = new List<UserCredential>();
     public UserSetting? Settings { get; set; }

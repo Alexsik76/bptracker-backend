@@ -371,4 +371,87 @@ public class ReminderTests : IClassFixture<ApiFactory>
 
         await action.Should().ThrowAsync<DbUpdateException>();
     }
+
+    [Fact]
+    public async Task Confirm_WithTimezone_ComputesCorrectDate()
+    {
+        var (user, token) = await TestUser.CreateAsync(_factory);
+        var client = _factory.CreateClient().AuthAs(token);
+
+        var schemaId = await CreateSchemaAsync(client);
+        var createDto = CreateTemplateBody(schemaId, isActive: true);
+        await client.PostJsonAsync("/api/v1/reminders/template", createDto);
+
+        // Mock time at 2026-06-12 20:30:00 UTC
+        // Europe/Kyiv (+3 DST) local time: 2026-06-12 23:30:00
+        // Asia/Bangkok (+7) local time: 2026-06-13 03:30:00
+        var testUtc = new DateTimeOffset(2026, 6, 12, 20, 30, 0, TimeSpan.Zero);
+        _factory.TimeProvider.SetUtcNow(testUtc);
+
+        // 1. Confirm with Europe/Kyiv -> Should be June 12
+        var kyivDto = new ConfirmIntakeDto("Morning", "Europe/Kyiv");
+        var kyivRes = await client.PostJsonAsync("/api/v1/reminders/confirm", kyivDto);
+        kyivRes.StatusCode.Should().Be(HttpStatusCode.OK);
+        var kyivReport = await kyivRes.Content.ReadFromJsonAsync<IntakeReport>();
+        kyivReport.Should().NotBeNull();
+        kyivReport!.Date.Should().Be(new DateOnly(2026, 6, 12));
+
+        // 2. Confirm with Asia/Bangkok -> Should be June 13
+        // Note: Confirming for a different day is allowed by unique constraint (TemplateId, Period, Date)
+        var bangkokDto = new ConfirmIntakeDto("Morning", "Asia/Bangkok");
+        var bangkokRes = await client.PostJsonAsync("/api/v1/reminders/confirm", bangkokDto);
+        bangkokRes.StatusCode.Should().Be(HttpStatusCode.OK);
+        var bangkokReport = await bangkokRes.Content.ReadFromJsonAsync<IntakeReport>();
+        bangkokReport.Should().NotBeNull();
+        bangkokReport!.Date.Should().Be(new DateOnly(2026, 6, 13));
+    }
+
+    [Fact]
+    public async Task Confirm_WithInvalidTimezone_Returns400()
+    {
+        var (_, token) = await TestUser.CreateAsync(_factory);
+        var client = _factory.CreateClient().AuthAs(token);
+
+        var schemaId = await CreateSchemaAsync(client);
+        var createDto = CreateTemplateBody(schemaId, isActive: true);
+        await client.PostJsonAsync("/api/v1/reminders/template", createDto);
+
+        var confirmDto = new ConfirmIntakeDto("Morning", "Invalid/Timezone");
+        var res = await client.PostJsonAsync("/api/v1/reminders/confirm", confirmDto);
+        res.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task Today_WithTimezone_ReturnsCorrectTodayMeds()
+    {
+        var (_, token) = await TestUser.CreateAsync(_factory);
+        var client = _factory.CreateClient().AuthAs(token);
+
+        var schemaId = await CreateSchemaAsync(client);
+        var createDto = CreateTemplateBody(schemaId, isActive: true);
+        await client.PostJsonAsync("/api/v1/reminders/template", createDto);
+
+        // Mock time at 2026-06-12 20:30:00 UTC
+        var testUtc = new DateTimeOffset(2026, 6, 12, 20, 30, 0, TimeSpan.Zero);
+        _factory.TimeProvider.SetUtcNow(testUtc);
+
+        // 1. GET /today with Europe/Kyiv -> Should be June 12
+        var kyivRes = await client.GetAsync("/api/v1/reminders/today?timezone=Europe/Kyiv");
+        kyivRes.StatusCode.Should().Be(HttpStatusCode.OK);
+        var kyivMeds = await kyivRes.Content.ReadFromJsonAsync<TodayMedsDto>();
+        kyivMeds.Should().NotBeNull();
+        kyivMeds!.Date.Should().Be(new DateOnly(2026, 6, 12));
+        kyivMeds.Intakes.Should().HaveCount(2);
+
+        // 2. GET /today with Asia/Bangkok -> Should be June 13
+        var bangkokRes = await client.GetAsync("/api/v1/reminders/today?timezone=Asia/Bangkok");
+        bangkokRes.StatusCode.Should().Be(HttpStatusCode.OK);
+        var bangkokMeds = await bangkokRes.Content.ReadFromJsonAsync<TodayMedsDto>();
+        bangkokMeds.Should().NotBeNull();
+        bangkokMeds!.Date.Should().Be(new DateOnly(2026, 6, 13));
+
+        // 3. GET /today with Invalid timezone -> Should return 400
+        var invalidRes = await client.GetAsync("/api/v1/reminders/today?timezone=Invalid/Timezone");
+        invalidRes.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
 }

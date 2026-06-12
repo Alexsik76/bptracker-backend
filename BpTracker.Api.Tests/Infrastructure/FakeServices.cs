@@ -49,3 +49,12 @@ public class FakePhotoApiService : IPhotoApiService
         return Task.FromResult<ImageAnalysisResultDto?>(null);
     }
 }
+
+public class TestTimeProvider : TimeProvider
+{
+    private DateTimeOffset _now = DateTimeOffset.UtcNow;
+
+    public void SetUtcNow(DateTimeOffset now) => _now = now;
+
+    public override DateTimeOffset GetUtcNow() => _now;
+}

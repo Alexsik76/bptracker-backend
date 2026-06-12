@@ -59,7 +59,7 @@ public class AuthService : IAuthService
         if (cred != null)
         {
             cred.SignCount = signCount;
-            cred.LastUsedAt = DateTime.UtcNow;
+            cred.LastUsedAt = DateTimeOffset.UtcNow;
             await _db.SaveChangesAsync();
         }
     }
@@ -67,7 +67,7 @@ public class AuthService : IAuthService
     public async Task<string> CreateSessionAsync(Guid userId)
     {
         // Invalidate sessions older than 90 days (ExpiresAt proxy: created 90d ago = expires 60d ago)
-        var staleCutoff = DateTime.UtcNow.AddDays(-(SessionDays + 60));
+        var staleCutoff = DateTimeOffset.UtcNow.AddDays(-(SessionDays + 60));
         await _db.UserSessions
             .Where(s => s.UserId == userId && s.ExpiresAt < staleCutoff)
             .ExecuteDeleteAsync();
@@ -79,7 +79,7 @@ public class AuthService : IAuthService
         {
             UserId = userId,
             TokenHash = hash,
-            ExpiresAt = DateTime.UtcNow.AddDays(SessionDays)
+            ExpiresAt = DateTimeOffset.UtcNow.AddDays(SessionDays)
         };
 
         _db.UserSessions.Add(session);
@@ -93,7 +93,7 @@ public class AuthService : IAuthService
         var hash = HashToken(token);
         var session = await _db.UserSessions
             .Include(s => s.User)
-            .FirstOrDefaultAsync(s => s.TokenHash == hash && s.ExpiresAt > DateTime.UtcNow);
+            .FirstOrDefaultAsync(s => s.TokenHash == hash && s.ExpiresAt > DateTimeOffset.UtcNow);
 
         return session?.User;
     }
@@ -111,7 +111,7 @@ public class AuthService : IAuthService
 
     public async Task<bool> CanRequestMagicLinkAsync(string email)
     {
-        var window = DateTime.UtcNow.AddMinutes(-MagicLinkMinutes);
+        var window = DateTimeOffset.UtcNow.AddMinutes(-MagicLinkMinutes);
         var recentCount = await _db.MagicLinks
             .CountAsync(l => l.Email == email && l.CreatedAt >= window);
         return recentCount < 3;
@@ -129,7 +129,7 @@ public class AuthService : IAuthService
         {
             Email = email,
             TokenHash = hash,
-            ExpiresAt = DateTime.UtcNow.AddMinutes(MagicLinkMinutes)
+            ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(MagicLinkMinutes)
         };
 
         _db.MagicLinks.Add(link);
@@ -142,7 +142,7 @@ public class AuthService : IAuthService
     {
         var hash = HashToken(token);
         var link = await _db.MagicLinks
-            .FirstOrDefaultAsync(l => l.TokenHash == hash && l.ExpiresAt > DateTime.UtcNow);
+            .FirstOrDefaultAsync(l => l.TokenHash == hash && l.ExpiresAt > DateTimeOffset.UtcNow);
 
         if (link == null) return null;
 

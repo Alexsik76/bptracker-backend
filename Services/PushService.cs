@@ -38,7 +38,7 @@ public class PushService : IPushService
             existing.UserId = userId;
             existing.P256dh = subscriptionDto.Keys.P256dh;
             existing.Auth = subscriptionDto.Keys.Auth;
-            existing.CreatedAt = DateTime.UtcNow;
+            existing.CreatedAt = DateTimeOffset.UtcNow;
         }
         else
         {

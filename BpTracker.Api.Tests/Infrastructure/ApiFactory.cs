@@ -22,6 +22,7 @@ public class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
     public FakePhotoApiService PhotoApiService { get; } = new();
     public FakeFido2 Fido2 { get; } = new();
     public FakeWebPushClient WebPushClient { get; } = new();
+    public TestTimeProvider TimeProvider { get; } = new();
     public HashSet<string>? AllowedEmails { get; set; } = null;
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -59,6 +60,10 @@ public class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
             services.RemoveAll<DbContextOptions<AppDbContext>>();
             services.AddDbContext<AppDbContext>(opt =>
                 opt.UseNpgsql(_db.GetConnectionString()));
+
+            // Replace time provider with fake
+            services.RemoveAll<TimeProvider>();
+            services.AddSingleton<TimeProvider>(TimeProvider);
 
             // Replace email sender with in-memory fake
             services.RemoveAll<IEmailSender>();

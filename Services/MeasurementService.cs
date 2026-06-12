@@ -9,7 +9,7 @@ public class MeasurementService(AppDbContext context) : IMeasurementService
 {
     public async Task<IEnumerable<MeasurementDto>> GetRecentAsync(Guid userId, int days = 90)
     {
-        var cutoff = DateTime.UtcNow.AddDays(-days);
+        var cutoff = DateTimeOffset.UtcNow.AddDays(-days);
         return await context.Measurements
             .Where(m => m.UserId == userId && m.RecordedAt >= cutoff)
             .OrderByDescending(m => m.RecordedAt)
@@ -26,7 +26,7 @@ public class MeasurementService(AppDbContext context) : IMeasurementService
             Sys = dto.Sys,
             Dia = dto.Dia,
             Pulse = dto.Pulse,
-            RecordedAt = dto.RecordedAt ?? DateTime.UtcNow
+            RecordedAt = dto.RecordedAt ?? DateTimeOffset.UtcNow
         };
 
         context.Measurements.Add(measurement);

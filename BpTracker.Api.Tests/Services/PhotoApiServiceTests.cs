@@ -59,7 +59,7 @@ public class PhotoApiServiceTests
         };
         var service = new PhotoApiService(factory, Options.Create(settings), NullLogger<PhotoApiService>.Instance);
 
-        var recordedAt = new DateTime(2026, 5, 2, 10, 0, 0, DateTimeKind.Utc);
+        var recordedAt = new DateTimeOffset(2026, 5, 2, 10, 0, 0, TimeSpan.Zero);
         var measurement = new Measurement
         {
             Id = Guid.NewGuid(),

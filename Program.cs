@@ -111,6 +111,7 @@ builder.Services.AddScoped<ISchemaService, SchemaService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IPushService, PushService>();
 builder.Services.AddScoped<IReminderService, ReminderService>();
+builder.Services.AddSingleton(TimeProvider.System);
 
 var vapidPublicKey = builder.Configuration["VAPID_PUBLIC_KEY"];
 var vapidPrivateKey = builder.Configuration["VAPID_PRIVATE_KEY"];

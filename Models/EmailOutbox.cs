@@ -31,8 +31,8 @@ public class EmailOutbox
     public int Attempts { get; set; }
     public string? LastError { get; set; }
 
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-    public DateTime NextAttemptAt { get; set; } = DateTime.UtcNow;
+    public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
+    public DateTimeOffset NextAttemptAt { get; set; } = DateTimeOffset.UtcNow;
 
     public Guid? UserId { get; set; }
 

@@ -39,13 +39,13 @@ public class CleanupWorker : BackgroundService
         using var scope = _scopeFactory.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-        var sessionCutoff = DateTime.UtcNow - SessionGracePeriod;
+        var sessionCutoff = DateTimeOffset.UtcNow - SessionGracePeriod;
         var deletedSessions = await db.UserSessions
             .Where(s => s.ExpiresAt < sessionCutoff)
             .ExecuteDeleteAsync(ct);
 
         var deletedLinks = await db.MagicLinks
-            .Where(l => l.ExpiresAt < DateTime.UtcNow)
+            .Where(l => l.ExpiresAt < DateTimeOffset.UtcNow)
             .ExecuteDeleteAsync(ct);
 
         _logger.LogInformation(

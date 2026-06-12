@@ -13,10 +13,13 @@ namespace BpTracker.Api.Services;
 public class ReminderService : IReminderService
 {
     private readonly AppDbContext _db;
+    private readonly TimeProvider _timeProvider;
+    public const string DefaultTimeZone = "Europe/Kyiv";
 
-    public ReminderService(AppDbContext db)
+    public ReminderService(AppDbContext db, TimeProvider timeProvider)
     {
         _db = db;
+        _timeProvider = timeProvider;
     }
 
     public async Task<ReminderTemplate> CreateTemplateAsync(Guid userId, CreateTemplateDto dto)
@@ -101,12 +104,12 @@ public class ReminderService : IReminderService
             .FirstOrDefaultAsync(t => t.UserId == userId && t.IsActive);
     }
 
-    public async Task<IntakeReport?> ConfirmAsync(Guid userId, string period)
+    public async Task<IntakeReport?> ConfirmAsync(Guid userId, string period, string? timezone = null)
     {
         var activeTemplate = await GetActiveTemplateAsync(userId);
         if (activeTemplate == null) return null;
 
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var today = GetTodayInTimezone(timezone);
 
         var existing = await _db.IntakeReports
             .FirstOrDefaultAsync(r => r.TemplateId == activeTemplate.Id && r.UserId == userId && r.Period == period && r.Date == today);
@@ -122,7 +125,7 @@ public class ReminderService : IReminderService
             Period = period,
             Date = today,
             Status = IntakeStatus.Confirmed,
-            Time = DateTimeOffset.UtcNow.ToUniversalTime(),
+            Time = _timeProvider.GetUtcNow().ToUniversalTime(),
             UserId = userId
         };
 
@@ -145,12 +148,80 @@ public class ReminderService : IReminderService
 
     public async Task<IReadOnlyList<IntakeReport>> GetReportsAsync(Guid userId, int days)
     {
-        var cutoff = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-days));
+        var cutoff = DateOnly.FromDateTime(_timeProvider.GetUtcNow().UtcDateTime.AddDays(-days));
         return await _db.IntakeReports
             .Include(r => r.Template)
             .Where(r => r.UserId == userId && r.Date >= cutoff)
             .OrderByDescending(r => r.Date)
             .ThenBy(r => r.Period)
             .ToListAsync();
+    }
+
+    public async Task<TodayMedsDto> GetTodayMedsAsync(Guid userId, string? timezone)
+    {
+        var today = GetTodayInTimezone(timezone);
+
+        var activeTemplate = await GetActiveTemplateAsync(userId);
+        if (activeTemplate == null)
+        {
+            return new TodayMedsDto(today, []);
+        }
+
+        Dictionary<string, PeriodConfig>? periods;
+        try
+        {
+            periods = JsonSerializer.Deserialize<Dictionary<string, PeriodConfig>>(
+                activeTemplate.Periods.RootElement.GetRawText(),
+                new JsonSerializerOptions { PropertyNameCaseInsensitive = true }
+            );
+        }
+        catch
+        {
+            periods = null;
+        }
+
+        if (periods == null || periods.Count == 0)
+        {
+            return new TodayMedsDto(today, []);
+        }
+
+        var reports = await _db.IntakeReports
+            .Where(r => r.TemplateId == activeTemplate.Id && r.UserId == userId && r.Date == today)
+            .ToListAsync();
+
+        var intakes = new List<TodayIntakeStatusDto>();
+        foreach (var (periodName, config) in periods)
+        {
+            var report = reports.FirstOrDefault(r => r.Period.Equals(periodName, StringComparison.OrdinalIgnoreCase));
+            intakes.Add(new TodayIntakeStatusDto(
+                periodName,
+                config.Time,
+                config.Meds,
+                report?.Status.ToString(),
+                report?.Time
+            ));
+        }
+
+        return new TodayMedsDto(today, intakes);
+    }
+
+    private DateOnly GetTodayInTimezone(string? timezone)
+    {
+        var zoneId = string.IsNullOrWhiteSpace(timezone) ? DefaultTimeZone : timezone;
+
+        try
+        {
+            var tz = TimeZoneInfo.FindSystemTimeZoneById(zoneId);
+            var localTime = TimeZoneInfo.ConvertTime(_timeProvider.GetUtcNow(), tz);
+            return DateOnly.FromDateTime(localTime.DateTime);
+        }
+        catch (Exception ex) when (ex is TimeZoneNotFoundException or InvalidTimeZoneException)
+        {
+            if (!string.IsNullOrWhiteSpace(timezone))
+            {
+                throw new ArgumentException($"Invalid timezone: {timezone}", nameof(timezone));
+            }
+            throw;
+        }
     }
 }

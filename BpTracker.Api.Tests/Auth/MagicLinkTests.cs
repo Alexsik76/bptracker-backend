@@ -80,7 +80,7 @@ public class MagicLinkTests : IClassFixture<ApiFactory>
         token.Should().NotBeNullOrEmpty("CreateMagicLinkAsync should succeed for a fresh email");
 
         var link = await db.MagicLinks.FirstAsync(l => l.Email == email);
-        link.ExpiresAt = DateTime.UtcNow.AddMinutes(-1);
+        link.ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(-1);
         await db.SaveChangesAsync();
 
         // Consuming an expired link must fail

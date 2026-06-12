@@ -52,7 +52,7 @@ public class ResilientEmailSender : IEmailSender
             Status = EmailStatus.Failed,
             Attempts = RetryDelays.Length + 1,
             LastError = lastError,
-            NextAttemptAt = DateTime.UtcNow.AddMinutes(5)
+            NextAttemptAt = DateTimeOffset.UtcNow.AddMinutes(5)
         });
         await _db.SaveChangesAsync(ct);
     }

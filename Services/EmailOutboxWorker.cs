@@ -42,7 +42,7 @@ public class EmailOutboxWorker : BackgroundService
 
         var items = await db.EmailOutbox
             .Where(e => (e.Status == EmailStatus.Pending || e.Status == EmailStatus.Failed)
-                        && e.NextAttemptAt <= DateTime.UtcNow)
+                        && e.NextAttemptAt <= DateTimeOffset.UtcNow)
             .OrderBy(e => e.NextAttemptAt)
             .Take(50)
             .ToListAsync(ct);
@@ -75,7 +75,7 @@ public class EmailOutboxWorker : BackgroundService
                 {
                     item.Status = EmailStatus.Failed;
                     // exponential backoff: 5m, 10m, 20m, 40m, ...
-                    item.NextAttemptAt = DateTime.UtcNow.AddMinutes(5 * Math.Pow(2, item.Attempts - 1));
+                    item.NextAttemptAt = DateTimeOffset.UtcNow.AddMinutes(5 * Math.Pow(2, item.Attempts - 1));
                     _logger.LogWarning("Outbox email {Id} failed (attempt {Attempts}), retry at {Next}",
                         item.Id, item.Attempts, item.NextAttemptAt);
                 }
