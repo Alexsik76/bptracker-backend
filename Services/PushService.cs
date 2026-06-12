@@ -115,11 +115,15 @@ public class PushService : IPushService
                 }
             };
 
-            var message = new PushMessage(payloadJson);
+            var message = new PushMessage(payloadJson)
+            {
+                Urgency = PushMessageUrgency.High
+            };
 
             try
             {
                 await _pushClient.RequestPushMessageDeliveryAsync(webPushSub, message);
+                _logger.LogInformation("Sent push notification to {Endpoint} with Urgency: High", sub.Endpoint);
                 sent++;
             }
             catch (PushServiceClientException ex) when (ex.StatusCode == HttpStatusCode.NotFound || ex.StatusCode == HttpStatusCode.Gone)

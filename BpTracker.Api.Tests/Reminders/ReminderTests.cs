@@ -14,6 +14,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Xunit;
+using Lib.Net.Http.WebPush;
 
 namespace BpTracker.Api.Tests.Reminders;
 
@@ -283,6 +284,7 @@ public class ReminderTests : IClassFixture<ApiFactory>
         var (subscription, message) = sentForMe[0];
 
         subscription.Endpoint.Should().Be("https://updates.push.services.mozilla.com/wpush/v2/gAAAAA");
+        message.Urgency.Should().Be(PushMessageUrgency.High);
         
         var payload = JsonSerializer.Deserialize<JsonElement>(message.Content);
         payload.GetProperty("title").GetString().Should().Be("BP Tracker Reminder");
