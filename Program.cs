@@ -199,6 +199,7 @@ builder.Services.AddScoped<IFido2, Fido2>(sp => new Fido2(new Fido2Configuration
         .ToHashSet()
 }));
 
+builder.Services.AddMemoryCache();
 builder.Services.AddDistributedMemoryCache(); // For storing Fido2 challenges
 builder.Services.AddSession(options =>
 {

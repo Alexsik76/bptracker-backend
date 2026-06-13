@@ -8,7 +8,19 @@ public static class HttpContextExtensions
 
     public static string? GetSessionToken(this HttpContext context)
     {
-        return context.Request.Cookies[SessionCookieName];
+        var cookie = context.Request.Cookies[SessionCookieName];
+        if (!string.IsNullOrEmpty(cookie))
+        {
+            return cookie;
+        }
+
+        var authHeader = context.Request.Headers.Authorization.ToString();
+        if (!string.IsNullOrEmpty(authHeader) && authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+        {
+            return authHeader.Substring("Bearer ".Length).Trim();
+        }
+
+        return null;
     }
 
     public static Guid? GetUserId(this HttpContext context)

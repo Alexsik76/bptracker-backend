@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using BpTracker.Api.Services;
+using BpTracker.Api.Extensions;
 
 namespace BpTracker.Api.Middleware;
 
@@ -14,7 +15,7 @@ public class SessionMiddleware
 
     public async Task InvokeAsync(HttpContext context, IAuthService auth)
     {
-        var token = context.Request.Cookies["__Host-session"];
+        var token = context.GetSessionToken();
 
         if (!string.IsNullOrEmpty(token))
         {

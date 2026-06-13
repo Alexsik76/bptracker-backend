@@ -11,7 +11,7 @@ public interface IAuthService
     Task AddCredentialAsync(User user, UserCredential credential);
     Task UpdateCredentialSignCountAsync(byte[] credentialId, uint signCount);
 
-    Task<string> CreateSessionAsync(Guid userId);
+    Task<string> CreateSessionAsync(Guid userId, TimeSpan? ttl = null);
     Task<User?> GetUserBySessionTokenAsync(string token);
     Task InvalidateSessionAsync(string token);
 

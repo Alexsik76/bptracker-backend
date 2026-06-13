@@ -64,7 +64,7 @@ public class AuthService : IAuthService
         }
     }
 
-    public async Task<string> CreateSessionAsync(Guid userId)
+    public async Task<string> CreateSessionAsync(Guid userId, TimeSpan? ttl = null)
     {
         // Invalidate sessions older than 90 days (ExpiresAt proxy: created 90d ago = expires 60d ago)
         var staleCutoff = DateTimeOffset.UtcNow.AddDays(-(SessionDays + 60));
@@ -75,11 +75,15 @@ public class AuthService : IAuthService
         var token = GenerateSecureToken();
         var hash = HashToken(token);
 
+        var expiresAt = ttl.HasValue
+            ? DateTimeOffset.UtcNow + ttl.Value
+            : DateTimeOffset.UtcNow.AddDays(SessionDays);
+
         var session = new UserSession
         {
             UserId = userId,
             TokenHash = hash,
-            ExpiresAt = DateTimeOffset.UtcNow.AddDays(SessionDays)
+            ExpiresAt = expiresAt
         };
 
         _db.UserSessions.Add(session);

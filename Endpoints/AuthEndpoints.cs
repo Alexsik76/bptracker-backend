@@ -9,6 +9,7 @@ using Fido2NetLib.Objects;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace BpTracker.Api.Endpoints;
 
@@ -152,6 +153,66 @@ public static class AuthEndpoints
 
             await SignInUserAsync(ctx, auth, credential.UserId);
             return Results.Ok(success);
+        });
+
+        // Native Passkey Login
+        group.MapPost("/native/login/begin", (IFido2 fido2, IMemoryCache cache) =>
+        {
+            var options = fido2.GetAssertionOptions(new GetAssertionOptionsParams
+            {
+                AllowedCredentials = new List<PublicKeyCredentialDescriptor>(),
+                UserVerification = UserVerificationRequirement.Required
+            });
+            var challengeId = Guid.NewGuid().ToString("N");
+            cache.Set($"native-challenge:{challengeId}", options.ToJson(), new MemoryCacheEntryOptions
+            {
+                AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(5)
+            });
+            return Results.Ok(new NativeLoginBeginResponse(challengeId, options));
+        }).RequireRateLimiting("auth-challenge");
+
+        group.MapPost("/native/login/complete", async (NativeLoginCompleteRequest req, IFido2 fido2, IAuthService auth, IMemoryCache cache) =>
+        {
+            var challengeKey = $"native-challenge:{req.ChallengeId}";
+            if (!cache.TryGetValue(challengeKey, out string? json) || string.IsNullOrEmpty(json))
+            {
+                return Results.Unauthorized();
+            }
+            cache.Remove(challengeKey);
+
+            try
+            {
+                var options = AssertionOptions.FromJson(json);
+
+                var credential = await auth.GetCredentialByIdAsync(req.Assertion.RawId);
+                if (credential == null) return Results.Unauthorized();
+
+                var success = await fido2.MakeAssertionAsync(new MakeAssertionParams
+                {
+                    AssertionResponse = req.Assertion,
+                    OriginalOptions = options,
+                    StoredPublicKey = credential.PublicKey,
+                    StoredSignatureCounter = credential.SignCount,
+                    IsUserHandleOwnerOfCredentialIdCallback = (args, ct) =>
+                    {
+                        var userId = new Guid(args.UserHandle);
+                        return Task.FromResult(credential.UserId == userId);
+                    }
+                });
+
+                await auth.UpdateCredentialSignCountAsync(credential.CredentialId, success.SignCount);
+
+                var ttl = TimeSpan.FromDays(365);
+                var token = await auth.CreateSessionAsync(credential.UserId, ttl);
+                var user = await auth.GetUserByIdAsync(credential.UserId);
+                if (user == null) return Results.Unauthorized();
+
+                return Results.Ok(new NativeLoginResponse(token, user.Id, user.Email, DateTimeOffset.UtcNow + ttl));
+            }
+            catch
+            {
+                return Results.Unauthorized();
+            }
         });
 
         // Magic Link
