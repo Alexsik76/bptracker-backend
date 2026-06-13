@@ -16,8 +16,15 @@ public static class ReminderEndpoints
             var userId = ctx.GetUserId();
             if (userId == null) return Results.Unauthorized();
 
-            var template = await reminder.CreateTemplateAsync(userId.Value, dto);
-            return Results.Created($"/api/v1/reminders/template/{template.Id}", template);
+            try
+            {
+                var template = await reminder.CreateTemplateAsync(userId.Value, dto);
+                return Results.Created($"/api/v1/reminders/template/{template.Id}", template);
+            }
+            catch (ArgumentException ex)
+            {
+                return Results.BadRequest(new { error = ex.Message });
+            }
         });
 
         group.MapPatch("/template/{id:guid}", async (Guid id, UpdateTemplateDto dto, IReminderService reminder, HttpContext ctx) =>
@@ -25,8 +32,15 @@ public static class ReminderEndpoints
             var userId = ctx.GetUserId();
             if (userId == null) return Results.Unauthorized();
 
-            var template = await reminder.UpdateTemplateAsync(userId.Value, id, dto);
-            return template is not null ? Results.Ok(template) : Results.NotFound();
+            try
+            {
+                var template = await reminder.UpdateTemplateAsync(userId.Value, id, dto);
+                return template is not null ? Results.Ok(template) : Results.NotFound();
+            }
+            catch (ArgumentException ex)
+            {
+                return Results.BadRequest(new { error = ex.Message });
+            }
         });
 
         group.MapGet("/template/active", async (IReminderService reminder, HttpContext ctx) =>

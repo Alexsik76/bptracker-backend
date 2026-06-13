@@ -24,6 +24,11 @@ public class ReminderService : IReminderService
 
     public async Task<ReminderTemplate> CreateTemplateAsync(Guid userId, CreateTemplateDto dto)
     {
+        if (dto.MaxReminders < 1)
+            throw new ArgumentException("MaxReminders must be at least 1.", nameof(dto.MaxReminders));
+        if (dto.DurationMinutes < 1)
+            throw new ArgumentException("DurationMinutes must be at least 1.", nameof(dto.DurationMinutes));
+
         var jsonDoc = JsonDocument.Parse(dto.Periods.GetRawText());
 
         var template = new ReminderTemplate
@@ -62,6 +67,11 @@ public class ReminderService : IReminderService
         var template = await _db.ReminderTemplates
             .FirstOrDefaultAsync(t => t.Id == id && t.UserId == userId);
         if (template == null) return null;
+
+        if (dto.MaxReminders.HasValue && dto.MaxReminders.Value < 1)
+            throw new ArgumentException("MaxReminders must be at least 1.", nameof(dto.MaxReminders));
+        if (dto.DurationMinutes.HasValue && dto.DurationMinutes.Value < 1)
+            throw new ArgumentException("DurationMinutes must be at least 1.", nameof(dto.DurationMinutes));
 
         await using var tx = await _db.Database.BeginTransactionAsync();
 

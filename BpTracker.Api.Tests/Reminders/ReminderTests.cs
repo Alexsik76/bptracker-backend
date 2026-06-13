@@ -454,4 +454,82 @@ public class ReminderTests : IClassFixture<ApiFactory>
         var invalidRes = await client.GetAsync("/api/v1/reminders/today?timezone=Invalid/Timezone");
         invalidRes.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
+
+    [Fact]
+    public async Task CreateTemplate_WithMaxRemindersZero_Returns400()
+    {
+        var (_, token) = await TestUser.CreateAsync(_factory);
+        var client = _factory.CreateClient().AuthAs(token);
+
+        var schemaId = await CreateSchemaAsync(client);
+        var createDto = new CreateTemplateDto(
+            schemaId,
+            JsonSerializer.Deserialize<JsonElement>(JsonSerializer.Serialize(ValidPeriods())),
+            15,
+            0,
+            true
+        );
+
+        var res = await client.PostJsonAsync("/api/v1/reminders/template", createDto);
+        res.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task CreateTemplate_WithDurationMinutesZero_Returns400()
+    {
+        var (_, token) = await TestUser.CreateAsync(_factory);
+        var client = _factory.CreateClient().AuthAs(token);
+
+        var schemaId = await CreateSchemaAsync(client);
+        var createDto = new CreateTemplateDto(
+            schemaId,
+            JsonSerializer.Deserialize<JsonElement>(JsonSerializer.Serialize(ValidPeriods())),
+            0,
+            5,
+            true
+        );
+
+        var res = await client.PostJsonAsync("/api/v1/reminders/template", createDto);
+        res.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task PatchTemplate_WithMaxRemindersZero_Returns400()
+    {
+        var (_, token) = await TestUser.CreateAsync(_factory);
+        var client = _factory.CreateClient().AuthAs(token);
+
+        var schemaId = await CreateSchemaAsync(client);
+        var createDto = CreateTemplateBody(schemaId, isActive: true);
+        var createRes = await client.PostJsonAsync("/api/v1/reminders/template", createDto);
+        var created = (await createRes.Content.ReadFromJsonAsync<ReminderTemplate>())!;
+
+        var updateDto = new UpdateTemplateDto(null, null, 0, null);
+        var res = await client.PatchAsync($"/api/v1/reminders/template/{created.Id}", JsonContent.Create(updateDto));
+        res.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task CreateAndPatchTemplate_WithValidValues_ReturnsSuccess()
+    {
+        var (_, token) = await TestUser.CreateAsync(_factory);
+        var client = _factory.CreateClient().AuthAs(token);
+
+        var schemaId = await CreateSchemaAsync(client);
+        var createDto = new CreateTemplateDto(
+            schemaId,
+            JsonSerializer.Deserialize<JsonElement>(JsonSerializer.Serialize(ValidPeriods())),
+            1,
+            1,
+            true
+        );
+
+        var createRes = await client.PostJsonAsync("/api/v1/reminders/template", createDto);
+        createRes.StatusCode.Should().Be(HttpStatusCode.Created);
+        var created = (await createRes.Content.ReadFromJsonAsync<ReminderTemplate>())!;
+
+        var updateDto = new UpdateTemplateDto(null, 2, 2, null);
+        var patchRes = await client.PatchAsync($"/api/v1/reminders/template/{created.Id}", JsonContent.Create(updateDto));
+        patchRes.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
 }
