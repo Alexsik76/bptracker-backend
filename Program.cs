@@ -196,6 +196,8 @@ builder.Services.AddScoped<IFido2, Fido2>(sp => new Fido2(new Fido2Configuration
     ServerName = "BP Tracker",
     Origins = (builder.Configuration["CORS_ORIGINS"] ?? "https://bptracker.home.vn.ua")
         .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+        .Concat((builder.Configuration["FIDO2_ANDROID_ORIGINS"] ?? "")
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
         .ToHashSet()
 }));
 
